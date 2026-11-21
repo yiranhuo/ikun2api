@@ -10,7 +10,7 @@ def run(args,**kwargs):
 def download(url):
     with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'IKUN-release-QA'}),timeout=180) as r:return r.read()
 def main():
-    bundle=ROOT/'dist/release';project='ikun-migration-qa-'+secrets.token_hex(4);image='ghcr.io/1812095643/ikun2api:'+VERSION
+    bundle=ROOT/'dist/release';project='ikun-migration-qa-'+secrets.token_hex(4);image='ghcr.io/'+os.environ.get('GITHUB_REPOSITORY','yiranhuo/ikun2api')+':'+VERSION
     run(['docker','load','-i',str(bundle/f'ikun2api_image_{VERSION}_linux_amd64.tar.gz')])
     with tempfile.TemporaryDirectory(prefix='ikun-compose-qa-') as temp:
         work=pathlib.Path(temp);data=work/'data';data.mkdir();(data/'.installed').write_text('fixture')

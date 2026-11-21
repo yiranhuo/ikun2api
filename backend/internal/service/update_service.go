@@ -31,7 +31,7 @@ var (
 const (
 	updateCacheKey = "ikun2api_update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "1812095643/ikun2api"
+	githubRepo     = "yiranhuo/ikun2api"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"

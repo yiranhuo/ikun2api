@@ -112,7 +112,7 @@ FROM ${ALPINE_IMAGE}
 # Labels
 LABEL maintainer="1812095643 <github.com/1812095643>"
 LABEL description="IKUN2api - AI API Gateway Platform"
-LABEL org.opencontainers.image.source="https://github.com/1812095643/ikun2api"
+LABEL org.opencontainers.image.source="https://github.com/yiranhuo/ikun2api"
 
 # Install runtime dependencies
 RUN apk add --no-cache \

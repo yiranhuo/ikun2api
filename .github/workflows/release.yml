@@ -20,7 +20,7 @@ permissions:
   packages: write
 
 env:
-  REGISTRY_IMAGE: ghcr.io/1812095643/ikun2api
+  REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   release:
@@ -310,6 +310,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           COMMIT: ${{ steps.version.outputs.commit }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           git archive --format=tar.gz --prefix="ikun2api-${VERSION}/" -o "dist/release/ikun2api_${VERSION}_source.tar.gz" "$COMMIT"
@@ -317,7 +318,7 @@ jobs:
           cp deploy/MIGRATION.md dist/release/MIGRATION.md
           python3 - <<'PY'
           import json,os,pathlib
-          pathlib.Path('dist/release/release-manifest.json').write_text(json.dumps({'version':os.environ['VERSION'],'commit':os.environ['COMMIT'],'repository':'1812095643/ikun2api','upstream_baseline':'0.2.24','schema_forward_only':True,'signature':'Ed25519'},indent=2))
+          pathlib.Path('dist/release/release-manifest.json').write_text(json.dumps({'version':os.environ['VERSION'],'commit':os.environ['COMMIT'],'repository':os.environ.get('GITHUB_REPOSITORY','yiranhuo/ikun2api'),'upstream_baseline':'0.2.24','schema_forward_only':True,'signature':'Ed25519'},indent=2))
           PY
       - name: 生成并签名完整校验清单
         env:

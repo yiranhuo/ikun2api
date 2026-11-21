@@ -17,7 +17,7 @@ vi.mock('@/composables/useClipboard', () => ({ useClipboard: () => ({ copied: re
 const release = {
   current_version: '1.3.40', latest_version: '1.3.41', has_update: true,
   supports_self_update: true, cached: false, build_type: 'release',
-  release_info: { name: '1.3.41', body: '<img src=x onerror=alert(1)>', html_url: 'https://github.com/1812095643/ikun2api/releases/tag/v1.3.41', published_at: '' },
+  release_info: { name: '1.3.41', body: '<img src=x onerror=alert(1)>', html_url: 'https://github.com/yiranhuo/ikun2api/releases/tag/v1.3.41', published_at: '' },
 }
 const wrappers: ReturnType<typeof mount>[] = []
 function render() {

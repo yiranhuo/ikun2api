@@ -12,7 +12,7 @@
 
 services:
   ikun2api:
-    image: ghcr.io/1812095643/ikun2api:${IKUN_VERSION:-latest}
+    image: ghcr.io/yiranhuo/ikun2api:${IKUN_VERSION:-latest}
     container_name: ikun2api
     restart: unless-stopped
     security_opt:

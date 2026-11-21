@@ -75,7 +75,7 @@ setsid nohup bash -c "
     --build-arg TARGETARCH=amd64 \
     --build-arg VERSION=${TAG} \
     -f Dockerfile.localbuild \
-    -t ghcr.io/1812095643/ikun2api:${TAG} \
+    -t ghcr.io/yiranhuo/ikun2api:${TAG} \
     . > /tmp/build_${TAG}.log 2>&1
   echo \"EXIT=\$?\" >> /tmp/build_${TAG}.log
   touch /tmp/build_${TAG}.done
@@ -115,7 +115,7 @@ Step 35-54  运行时镜像：copy 二进制 + 时区数据 + 非 root 用户
 `/root/ikun2api/docker-compose.yml:27` 写的是：
 
 ```yaml
-image: ghcr.io/1812095643/ikun2api:${IKUN_VERSION:-latest}
+image: ghcr.io/yiranhuo/ikun2api:${IKUN_VERSION:-latest}
 ```
 
 **所以改 compose 文件是无效的**，必须改 `.env`：
@@ -123,8 +123,8 @@ image: ghcr.io/1812095643/ikun2api:${IKUN_VERSION:-latest}
 ```bash
 # 1. 先给当前版本打回滚 tag
 CURRENT=$(grep '^IKUN_VERSION=' /root/ikun2api/.env | cut -d= -f2-)
-docker tag ghcr.io/1812095643/ikun2api:${CURRENT} \
-           ghcr.io/1812095643/ikun2api:rollback-${CURRENT#1.3.39-}
+docker tag ghcr.io/yiranhuo/ikun2api:${CURRENT} \
+           ghcr.io/yiranhuo/ikun2api:rollback-${CURRENT#1.3.39-}
 
 # 2. 改版本号（第 1 行）
 sed -i '1s/^IKUN_VERSION=.*/IKUN_VERSION='"${TAG}"'/' /root/ikun2api/.env

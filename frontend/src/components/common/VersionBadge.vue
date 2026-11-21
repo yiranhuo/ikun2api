@@ -7,8 +7,8 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useSystemUpdate } from '@/composables/useSystemUpdate'
 import Icon from '@/components/icons/Icon.vue'
 
-const GITHUB_REPO = '1812095643/ikun2api'
-const DOCKER_IMAGE = 'ghcr.io/1812095643/ikun2api'
+const GITHUB_REPO = 'yiranhuo/ikun2api'
+const DOCKER_IMAGE = 'ghcr.io/yiranhuo/ikun2api'
 const { t } = useI18n()
 const props = defineProps<{ version?: string }>()
 const authStore = useAuthStore()

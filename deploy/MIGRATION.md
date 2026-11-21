@@ -7,19 +7,19 @@
 在原服务器运行；Docker 部署请先进入原 Compose 目录：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy/migrate.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/yiranhuo/ikun2api/main/deploy/migrate.sh | sudo bash
 ```
 
 原 systemd 服务名默认为 `sub2api`；自定义名称可指定：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy/migrate.sh | sudo bash -s -- --mode systemd --service sub2api
+curl -fsSL https://raw.githubusercontent.com/yiranhuo/ikun2api/main/deploy/migrate.sh | sudo bash -s -- --mode systemd --service sub2api
 ```
 
 指定原 Compose 文件和服务名：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy/migrate.sh | sudo bash -s -- --mode compose --compose-file ./docker-compose.yml --compose-service sub2api
+curl -fsSL https://raw.githubusercontent.com/yiranhuo/ikun2api/main/deploy/migrate.sh | sudo bash -s -- --mode compose --compose-file ./docker-compose.yml --compose-service sub2api
 ```
 
 可多次传入 `--compose-file`，顺序与原部署一致。`--check` 只下载校验并做只读兼容检查，不停服。`--version v1.3.18` 可固定版本。

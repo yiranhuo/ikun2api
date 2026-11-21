@@ -17,8 +17,8 @@ const (
 	AdminComplianceVersion        = "v2026.06.10"
 	AdminComplianceDocumentPathZH = "docs/legal/admin-compliance.zh.md"
 	AdminComplianceDocumentPathEN = "docs/legal/admin-compliance.en.md"
-	AdminComplianceDocumentURLZH  = "https://github.com/1812095643/ikun2api/blob/main/docs/legal/admin-compliance.zh.md"
-	AdminComplianceDocumentURLEN  = "https://github.com/1812095643/ikun2api/blob/main/docs/legal/admin-compliance.en.md"
+	AdminComplianceDocumentURLZH  = "https://github.com/yiranhuo/ikun2api/blob/main/docs/legal/admin-compliance.zh.md"
+	AdminComplianceDocumentURLEN  = "https://github.com/yiranhuo/ikun2api/blob/main/docs/legal/admin-compliance.en.md"
 	AdminComplianceAckPhraseZH    = "我已阅读、理解并同意 IKUN2api 部署与运营合规承诺"
 	AdminComplianceAckPhraseEN    = "I have read, understood, and agree to the IKUN2api Deployment and Operation Compliance Commitment"
 

@@ -11,7 +11,7 @@
 在原服务器执行；Compose 部署先进入原部署目录：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy/migrate.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/yiranhuo/ikun2api/main/deploy/migrate.sh | sudo bash
 ```
 
 自动校验、备份、迁移和核对数据，保留账号、余额、Key、订阅、用量、数据卷及加密配置。支持 Linux systemd 与 Docker Compose 单实例部署。详见 [迁入与回退](deploy/MIGRATION.md)。
@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy/mig
 
 管理员点击左上角版本号 → **检查更新** → **备份并一键更新**。只获取 IKUN 正式签名发布包，无需合并源码。
 
-[发布与下载](https://github.com/1812095643/ikun2api/releases/latest) · [新安装](deploy/README.md) · [维护者发布流程](scripts/release/README.md)
+[发布与下载](https://github.com/yiranhuo/ikun2api/releases/latest) · [新安装](deploy/README.md) · [维护者发布流程](scripts/release/README.md)
 
 | 内容 | 入口 |
 | --- | --- |

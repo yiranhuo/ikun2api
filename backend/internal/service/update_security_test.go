@@ -22,8 +22,8 @@ func TestUpdateReleaseSignatureRejectsTampering(t *testing.T) {
 	require.Error(t, verifyReleaseSignature(fixture, []byte("missing")))
 }
 func TestUpdateDownloadURLBoundToRepository(t *testing.T) {
-	require.NoError(t, validateDownloadURL("https://github.com/1812095643/ikun2api/releases/download/v1.3.16/checksums.txt"))
-	for _, u := range []string{"http://github.com/1812095643/ikun2api/releases/download/v1/a", "https://github.com/other/repo/releases/download/v1/a", "https://evil.github.com/1812095643/ikun2api/releases/download/v1/a", "https://github.com@evil.invalid/1812095643/ikun2api/releases/download/v1/a", "https://github.com/1812095643/ikun2api/releases/download/v1/a?next=x", "https://github.com/1812095643/ikun2api/releases/download/v1/../a"} {
+	require.NoError(t, validateDownloadURL("https://github.com/yiranhuo/ikun2api/releases/download/v1.3.16/checksums.txt"))
+	for _, u := range []string{"http://github.com/yiranhuo/ikun2api/releases/download/v1/a", "https://github.com/other/repo/releases/download/v1/a", "https://evil.github.com/yiranhuo/ikun2api/releases/download/v1/a", "https://github.com@evil.invalid/yiranhuo/ikun2api/releases/download/v1/a", "https://github.com/yiranhuo/ikun2api/releases/download/v1/a?next=x", "https://github.com/yiranhuo/ikun2api/releases/download/v1/../a"} {
 		require.Error(t, validateDownloadURL(u), u)
 	}
 }

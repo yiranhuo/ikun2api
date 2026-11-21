@@ -27,9 +27,9 @@ class ReleaseTest(unittest.TestCase):
         (self.root / 'NOTICE.md').write_text('fixture')
         (self.root / 'README.md').write_text('fixture')
         self.env = {**os.environ, 'DOCKERHUB_USERNAME': 'Example', 'DOCKERHUB_TOKEN': 'test-only',
-                    'GITHUB_REPOSITORY': '1812095643/ikun2api', 'GITHUB_OUTPUT': str(self.root / 'output'),
+                    'GITHUB_REPOSITORY': 'yiranhuo/ikun2api', 'GITHUB_OUTPUT': str(self.root / 'output'),
                     'VERSION': '0.2.7', 'COMMIT': 'abc123', 'BUILD_DATE': '2026-09-19T00:00:00Z',
-                    'GHCR_IMAGE': 'ghcr.io/1812095643/ikun2api', 'DOCKERHUB_IMAGE': 'example/ikun2api',
+                    'GHCR_IMAGE': 'ghcr.io/yiranhuo/ikun2api', 'DOCKERHUB_IMAGE': 'example/ikun2api',
                     'IMAGE_DIGEST': 'sha256:test'}
         self.git('init', '-q')
         self.git('add', '.')
@@ -47,7 +47,7 @@ class ReleaseTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         output = (self.root / 'output').read_text()
         self.assertIn('version=0.2.7\n', output)
-        self.assertIn('ghcr=ghcr.io/1812095643/ikun2api', output)
+        self.assertIn('ghcr=ghcr.io/yiranhuo/ikun2api', output)
         self.assertNotIn('dockerhub=', output)
 
     def test_exact_tag_wins(self):
@@ -71,7 +71,7 @@ class ReleaseTest(unittest.TestCase):
     def test_notes_render(self):
         subprocess.run(['python3', str(ROOT / 'scripts/release/notes.py')], cwd=self.root, env=self.env, check=True)
         text = (self.root / 'dist/release-notes.md').read_text()
-        for expected in ['\u5b9e\u9645\u66f4\u65b0', '## \U0001f4e5 Installation', '## \U0001f4da Documentation', '1812095643/ikun2api', 'abc123', 'sha256:test']:
+        for expected in ['\u5b9e\u9645\u66f4\u65b0', '## \U0001f4e5 Installation', '## \U0001f4da Documentation', 'yiranhuo/ikun2api', 'abc123', 'sha256:test']:
             self.assertIn(expected, text)
         self.assertNotIn('Wei-Shaw', text)
 

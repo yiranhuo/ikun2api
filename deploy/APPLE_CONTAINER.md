@@ -25,7 +25,7 @@ container --version
 ## Quick Start
 
 ```bash
-git clone https://github.com/1812095643/ikun2api.git
+git clone https://github.com/yiranhuo/ikun2api.git
 cd ikun2api/deploy
 
 # Creates .env with random PostgreSQL, JWT, and TOTP secrets.

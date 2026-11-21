@@ -22,7 +22,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-GITHUB_REPO="1812095643/ikun2api"
+GITHUB_REPO="${IKUN_GITHUB_REPO:-yiranhuo/ikun2api}"
 INSTALL_DIR="/opt/ikun2api"
 SERVICE_NAME="ikun2api"
 SERVICE_USER="ikun2api"
@@ -498,7 +498,7 @@ install_service() {
     cat > /etc/systemd/system/ikun2api.service << EOF
 [Unit]
 Description=IKUN2api - AI API Gateway Platform
-Documentation=https://github.com/1812095643/ikun2api
+Documentation=https://github.com/yiranhuo/ikun2api
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 

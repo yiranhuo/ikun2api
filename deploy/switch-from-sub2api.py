@@ -4,7 +4,7 @@ Requires root, Linux, Python 3.9+, openssl and the existing runtime supervisor.
 """
 import argparse,base64,datetime,hashlib,json,os,pathlib,platform,pwd,re,shutil,subprocess,sys,tarfile,tempfile,time,urllib.request
 
-REPO='1812095643/ikun2api'
+REPO='yiranhuo/ikun2api'
 PUBLIC_KEY='FjAf8K7CSX0LstSKwFGX2sL03GcQ14tUXsbNAAsrGnc='
 class SwitchError(RuntimeError):pass
 

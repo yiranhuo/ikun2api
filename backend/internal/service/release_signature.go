@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-const ReleaseRepository = "1812095643/ikun2api"
-const ReleaseSigningPublicKey = "FjAf8K7CSX0LstSKwFGX2sL03GcQ14tUXsbNAAsrGnc="
+const ReleaseRepository = "yiranhuo/ikun2api"
+const ReleaseSigningPublicKey = "y9uMni6i/8vgqKKnLrupN2wA5lUGk93TJejY8RNxGsI="
 
 func verifyReleaseSignature(checksums, signature []byte) error {
 	key, err := base64.StdEncoding.DecodeString(ReleaseSigningPublicKey)

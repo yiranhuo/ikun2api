@@ -4,7 +4,8 @@ Copyright (c) 2026 Wesley Liddick
 
 Copyright (c) 2026 MACOS DO
 
-Copyright (c) 2026 1812095643（本仓库新增与修改部分）
+Copyright (c) 2026 1812095643（上游 1812095643/ikun2api 新增与修改部分）
+Copyright (c) 2026 yiranhuo（yiranhuo/ikun2api 的后续修改部分）
 
 原有源文件中的版权、许可证和第三方声明继续保留。本仓库使用 GNU LGPL v3.0 或更高版本；完整许可文本见 `LICENSE` 与 `COPYING.GPL`。各依赖及第三方资源仍适用其各自许可。
 

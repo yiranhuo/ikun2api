@@ -8,7 +8,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-GITHUB_RAW_URL="https://raw.githubusercontent.com/1812095643/ikun2api/main/deploy"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/yiranhuo/ikun2api/main/deploy"
 
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"

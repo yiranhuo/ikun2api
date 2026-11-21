@@ -16,7 +16,7 @@ import (
 
 func TestUpdateReleaseSignatureRejectsTampering(t *testing.T) {
 	fixture := []byte("IKUN-release-test-fixture\n")
-	sig := []byte("Bu/nEjEw5QoArMjnSrqMxCDvMNPFcUmV1RZZunlZz2F5ePZbJwBpAZLVGvLv36RKXe6s6zn1Zu1BKjTdf+McCw==")
+	sig := []byte("csGQe5JmVgpww8DzFkoPQIgeErJGiW7sgbW9kv6CxmnEs6Yfebv4itC3XPTXzvWNfT2+GEgRCcXGzimoN+P1Dw==")
 	require.NoError(t, verifyReleaseSignature(fixture, sig))
 	require.Error(t, verifyReleaseSignature([]byte("tampered"), sig))
 	require.Error(t, verifyReleaseSignature(fixture, []byte("missing")))

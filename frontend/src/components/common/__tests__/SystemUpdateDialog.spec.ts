@@ -48,6 +48,36 @@ describe('version update controls',()=>{
   expect(update!.phase.value).toBe('failed');expect(update!.error.value).toBe('等待请求超时，更新已安全停止')
   wrapper.unmount()
  })
+ it('follows the staged upgrade to the new version instead of asking for another click',async()=>{
+  vi.useFakeTimers()
+  api.performUpdate.mockResolvedValue({message:'installed',need_restart:true})
+  api.getVersion.mockResolvedValue({version:'1.3.16'})
+  api.getUpdateStatus.mockResolvedValue({phase:'ready',active:true})
+  let update:ReturnType<typeof useSystemUpdate>
+  const wrapper=mount(defineComponent({setup(){update=useSystemUpdate({autoRestart:true});return{}},template:'<div/>'}))
+  await update!.check();const pending=update!.update();await flushPromises()
+  await vi.advanceTimersByTimeAsync(6300)
+  expect(update!.phase.value).toBe('restarting');expect(update!.busy.value).toBe(true);expect(update!.error.value).toBe('')
+  expect(api.getUpdateStatus.mock.calls.length).toBeGreaterThan(2)
+  expect(api.restartService).not.toHaveBeenCalled()
+  api.getUpdateStatus.mockResolvedValue({phase:'failed',active:false,error:'新版本未能启动'})
+  await vi.advanceTimersByTimeAsync(2100);await pending
+  expect(update!.phase.value).toBe('failed');expect(api.restartService).not.toHaveBeenCalled()
+  wrapper.unmount()
+ })
+ it('resumes the restart wait when the dialog opens on an already staged upgrade',async()=>{
+  vi.useFakeTimers()
+  api.getUpdateStatus.mockResolvedValue({phase:'ready',active:true})
+  api.getVersion.mockResolvedValue({version:'1.3.16'})
+  let update:ReturnType<typeof useSystemUpdate>
+  const wrapper=mount(defineComponent({setup(){update=useSystemUpdate({autoRestart:true});return{}},template:'<div/>'}))
+  await update!.check();await flushPromises()
+  expect(update!.needRestart.value).toBe(true);expect(update!.phase.value).toBe('restarting')
+  await vi.advanceTimersByTimeAsync(4100)
+  expect(api.getUpdateStatus.mock.calls.length).toBeGreaterThan(1)
+  expect(api.restartService).not.toHaveBeenCalled()
+  wrapper.unmount()
+ })
  it('keeps the dialog busy when reopened during request draining',async()=>{
   api.getUpdateStatus.mockResolvedValue({phase:'draining',active:true})
   const wrapper=mount(SystemUpdateDialog,{props:{show:false},global:{stubs:{BaseDialog:dialog,UpgradeBackupSettings:true}}})

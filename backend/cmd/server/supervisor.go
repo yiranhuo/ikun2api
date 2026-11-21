@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+// stagedUpgradeGrace is how long a staged upgrade journal must exist before the
+// supervisor interrupts the running child. The grace period lets the HTTP
+// response that reported the update reach the client before the listener goes
+// away, and it makes sure the executable swap that follows the journal write
+// has completed.
+const stagedUpgradeGrace = 3 * time.Second
+
 func runSupervisor() error {
 	binary, e := os.Executable()
 	if e != nil {
@@ -98,11 +105,51 @@ func runSupervisor() error {
 				}
 				tick.Stop()
 				return nil
-			case <-done:
+			case werr := <-done:
 				stopped = true
-				failed = j != nil
+				if j != nil {
+					// A clean exit while a candidate is staged is a restart request:
+					// the swap already landed, so the next iteration starts the new
+					// version and confirms it through the .ready marker. Anything
+					// else (crash, non-zero status) is a failed startup.
+					if werr == nil && upgradeCandidateInPlace(binary, j) {
+						log.Println("Supervised child exited for a staged upgrade; starting the new version")
+					} else {
+						failed = true
+					}
+				}
 			case <-tick.C:
 				if j == nil {
+					// The running child stages an update by writing the journal and
+					// swapping the executable while it keeps serving traffic. Read the
+					// journal again here, otherwise a staged upgrade would only be
+					// noticed after somebody restarted the container by hand.
+					staged, serr := service.ReadUpgradeJournal(binary)
+					if serr != nil || staged == nil {
+						continue
+					}
+					// Wait out the grace period so the HTTP response can reach the
+					// client, and require the executable swap to have landed. Reading
+					// the journal before the swap would otherwise look like an
+					// interrupted upgrade and throw the staged candidate away.
+					if time.Since(staged.CreatedAt) < stagedUpgradeGrace {
+						continue
+					}
+					if !upgradeCandidateInPlace(binary, staged) {
+						continue
+					}
+					log.Println("Upgrade staged by the running service; restarting into the new version")
+					_ = child.Process.Signal(syscall.SIGTERM)
+					select {
+					case <-done:
+					case <-time.After(15 * time.Second):
+						_ = child.Process.Kill()
+						<-done
+					}
+					// A staged upgrade is not a failure: the next iteration starts the
+					// candidate binary and confirms it through the .ready marker.
+					stopped = true
+					failed = false
 					continue
 				}
 				b, e := os.ReadFile(service.UpgradeJournalPath(binary) + ".ready")
@@ -178,4 +225,12 @@ func restorePreviousExecutable(binary string, j *service.UpgradeJournal) error {
 	b, _ := json.Marshal(map[string]any{"phase": "failed", "error": "新版本未能启动或备份失败，已恢复升级前的程序与数据。", "active": false})
 	_ = os.WriteFile(binary+".upgrade-result.json", b, 0600)
 	return nil
+}
+
+// upgradeCandidateInPlace reports whether the staged candidate already replaced
+// the live executable. It separates an intentional restart from an upgrade that
+// never reached the atomic swap.
+func upgradeCandidateInPlace(binary string, j *service.UpgradeJournal) bool {
+	hash, err := service.UpgradeFileHash(binary)
+	return err == nil && hash == j.CandidateSHA256
 }

@@ -126,7 +126,7 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 
 		service.SetUpgradePhase("ready", "")
 		return gin.H{
-			"message":      "Update completed. Please restart the service.",
+			"message":      "Update installed. The supervised service restarts into it automatically.",
 			"need_restart": true,
 			"operation_id": lock.OperationID(),
 		}, nil
@@ -196,7 +196,7 @@ func (h *SystemHandler) Rollback(c *gin.Context) {
 
 		service.SetUpgradePhase("ready", "")
 		return gin.H{
-			"message":      "Rollback completed. Please restart the service.",
+			"message":      "Rollback installed. The supervised service restarts into it automatically.",
 			"need_restart": true,
 			"version":      targetVersion,
 			"operation_id": lock.OperationID(),

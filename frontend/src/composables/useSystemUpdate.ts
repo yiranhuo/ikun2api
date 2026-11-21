@@ -31,8 +31,11 @@ export function useSystemUpdate(options: { autoRestart?: boolean } = { autoResta
       else if (taskPhases.includes(status.phase)) {
         phase.value = taskPhase(status.phase)
         void watchUpdate().catch(fail)
-      } else if (status.phase === 'ready') { needRestart.value = true; phase.value = 'idle' }
-      else phase.value = 'idle'
+      } else if (status.phase === 'ready') {
+        // The candidate is staged and the supervisor restarts into it on its own.
+        needRestart.value = true; phase.value = 'restarting'
+        void watchUpdate().catch(fail)
+      } else phase.value = 'idle'
     } catch (e) { if (!disposed) fail(e) }
   }
   async function restart() {
@@ -68,7 +71,12 @@ export function useSystemUpdate(options: { autoRestart?: boolean } = { autoResta
         if (disposed) return
         if (version.version && version.version !== previous && !status.active && status.phase === 'idle') { window.location.reload(); return }
         if (status.phase === 'failed') { error.value = status.error || '更新失败，现有程序仍保留。'; phase.value = 'failed'; return }
-        if (status.phase === 'ready') { needRestart.value = true; phase.value = 'idle'; return }
+        if (status.phase === 'ready') {
+          // Keep polling: the supervisor applies the staged candidate itself, so
+          // the reload arrives once the new version answers the status endpoint.
+          needRestart.value = true; phase.value = 'restarting'
+          continue
+        }
         if (taskPhases.includes(status.phase)) phase.value = taskPhase(status.phase)
         if (status.phase === 'idle' && !status.active) { phase.value = 'idle'; await check(true); return }
       } catch { /* The supervisor can temporarily stop the listener while backing up. */ }
@@ -83,9 +91,12 @@ export function useSystemUpdate(options: { autoRestart?: boolean } = { autoResta
       if (disposed) return
       if (result.started) { await watchUpdate(); return }
       needRestart.value = result.need_restart
-      if (result.need_restart && options.autoRestart !== false) await restart()
-      else if (result.need_restart) phase.value = 'idle'
-      else { phase.value = 'idle'; await check(true) }
+      if (result.need_restart) {
+        // The staged candidate is applied by the supervisor restart, so follow the
+        // version change instead of asking for another click.
+        if (options.autoRestart === false) phase.value = 'idle'
+        else { phase.value = 'restarting'; await watchUpdate() }
+      } else { phase.value = 'idle'; await check(true) }
     } catch (e) {
       if (disposed) return
       // A proxy/client timeout does not mean a detached server job was canceled.

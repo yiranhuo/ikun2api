@@ -1,5 +1,16 @@
 # 维护者发布
 
+> **本仓库（`yiranhuo/ikun2api`）是独立维护的派生副本**，不与上游 `1812095643/ikun2api`
+> 共享 fork 网络，因此发布源、签名密钥、镜像地址全部指向本仓库：
+>
+> - 更新检查与下载：`https://github.com/yiranhuo/ikun2api`（`backend/internal/service/update_service.go` 的 `githubRepo`、`release_signature.go` 的 `ReleaseRepository`）
+> - 容器镜像：`ghcr.io/yiranhuo/ikun2api`（workflow 用 `${{ github.repository }}` 派生，无需改）
+> - 签名私钥：仓库 Secret `IKUN_RELEASE_SIGNING_KEY`（Ed25519）；客户端内置公钥在
+>   `backend/internal/service/release_signature.go` 的 `ReleaseSigningPublicKey`
+> - 公钥同时硬编码在 `deploy/install.sh` 与 `deploy/switch-from-sub2api.py`，**换钥必须三处同步**，
+>   否则新包装得上、旧版更新器验签失败
+> - 同步上游：`git fetch upstream && git merge upstream/main`（`upstream` 指向 `1812095643/ikun2api`）
+
 1. 从 main 开发，保留同步规范规定的 IKUN 二开边界。
 2. 修改 `backend/cmd/server/VERSION`、`frontend/package.json`，补充 `changelog/<版本>/CHANGELOG.md`。
 3. 运行更新、迁移、认证与现有功能回归。

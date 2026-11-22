@@ -80,6 +80,17 @@ func AbortWithError(c *gin.Context, statusCode int, code, message string) {
 	c.Abort()
 }
 
+// abortWithAnthropicAuthError 输出 Anthropic 官方形状的 401 鉴权失败响应体：
+// {"type":"error","error":{"type":"authentication_error","message":message}}
+// 用于 API Key 鉴权入口拒绝，保持与 Anthropic 官方 API 一致的错误包络。
+func abortWithAnthropicAuthError(c *gin.Context, message string) {
+	c.JSON(http.StatusUnauthorized, gin.H{
+		"type":  "error",
+		"error": gin.H{"type": "authentication_error", "message": message},
+	})
+	c.Abort()
+}
+
 // abortWithOpenAIQuotaError writes the OpenAI-compatible insufficient quota response.
 func abortWithOpenAIQuotaError(c *gin.Context, statusCode int, message string) {
 	c.JSON(statusCode, gin.H{

@@ -681,7 +681,7 @@ func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 			path:       "/t",
 			key:        strings.Repeat("x", service.MaxAPIKeyCredentialBytes+1),
 			wantStatus: http.StatusUnauthorized,
-			wantCode:   "INVALID_API_KEY",
+			wantCode:   "authentication_error",
 			wantReason: IngressRejectInvalidAPIKey,
 		},
 		{
@@ -690,7 +690,7 @@ func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 			key:        "invalid",
 			repoErr:    service.ErrAPIKeyNotFound,
 			wantStatus: http.StatusUnauthorized,
-			wantCode:   "INVALID_API_KEY",
+			wantCode:   "authentication_error",
 			wantReason: IngressRejectInvalidAPIKey,
 		},
 		{

@@ -2488,6 +2488,20 @@ func (a *Account) IsAnthropicAPIKeyPassthroughEnabled() bool {
 	return ok && enabled
 }
 
+// IsAnthropicRawBodyPassthroughEnabled 返回透传分支是否跳过 Claude 隐私裁剪，直接把客户端 body 原样送到上游。
+// 字段：accounts.extra.anthropic_raw_body_passthrough。
+// 字段缺失或类型不正确时，按 false（关闭）处理，即保持现有的隐私裁剪行为。
+//
+// 该开关与 anthropic_passthrough 解耦，原因是隐私裁剪同时承担"剥离客户端自动上下文"的职责，
+// 默认行为不能改变；只有明确需要 1:1 保真（未知字段、客户端实验字段原样透传）的账号才打开。
+func (a *Account) IsAnthropicRawBodyPassthroughEnabled() bool {
+	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
+		return false
+	}
+	enabled, ok := a.Extra["anthropic_raw_body_passthrough"].(bool)
+	return ok && enabled
+}
+
 // WebSearch 模拟三态常量
 const (
 	WebSearchModeDefault  = "default"  // 跟随渠道配置

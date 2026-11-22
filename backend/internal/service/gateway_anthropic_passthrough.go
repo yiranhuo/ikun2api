@@ -375,12 +375,20 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 	body []byte,
 	token string,
 ) (*http.Request, []byte, error) {
-	cleanBody, err := sanitizeClaudePrivacyBody(body)
-	if err != nil {
-		return nil, nil, err
+	// 原样 body 透传账号（accounts.extra.anthropic_raw_body_passthrough=true）跳过隐私裁剪，
+	// 使未知字段与客户端实验字段 1:1 到达上游；默认关闭，保持既有裁剪行为。
+	rawBodyPassthrough := account.IsAnthropicRawBodyPassthroughEnabled()
+	if !rawBodyPassthrough {
+		cleanBody, err := sanitizeClaudePrivacyBody(body)
+		if err != nil {
+			return nil, nil, err
+		}
+		body = cleanBody
 	}
-	body = cleanBody
 	body = stripDeferredToolCacheControl(body)
+	// 网关侧压缩仿真：客户端带 context_management.edits[].type=compact* 且历史超过 trigger
+	// 阈值时，在此折叠历史并在响应阶段回写 compaction 块，不依赖客户端 beta token。
+	body = emulateClaudeCompaction(c, body)
 	targetURL := claudeAPIURL
 	baseURL := getAnthropicGatewayBaseURL(account)
 	if baseURL != "" {
@@ -447,7 +455,9 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 	// 账号级请求头覆写（最终生效，覆盖上面所有来源的同名头）
 	account.ApplyHeaderOverrides(req.Header)
 	filterSonnet55ToolsetBetaHeader(req.Header, body, gjson.GetBytes(body, "model").String())
-	sanitizeClaudePrivacyHeaders(req.Header)
+	if !rawBodyPassthrough {
+		sanitizeClaudePrivacyHeaders(req.Header)
+	}
 
 	return req, body, nil
 }
@@ -615,6 +625,8 @@ func (s *GatewayService) handleStreamingResponseAnthropicAPIKeyPassthrough(
 			parseSSEUsagePassthrough(event.data, usage)
 		}
 		block := event.rawBlock()
+		// 流式不改写 content：注入 compaction 块需要同步重排后续 content_block_* 的 index，
+		// 对不支持该块类型的客户端风险高于收益，压缩仿真回执仅在非流式响应里给出。
 		if clientModel != "" && event.hasData && gjson.Get(event.data, "type").String() == "message_start" && gjson.Get(event.data, "message.model").Exists() {
 			if rewritten, err := sjson.Set(event.data, "message.model", clientModel); err == nil {
 				block = event.blockWithData(rewritten)
@@ -1019,6 +1031,8 @@ func (s *GatewayService) handleNonStreamingResponseAnthropicAPIKeyPassthrough(
 	}
 	body = restoreCompositeClientModel(ctx, body)
 	body = reverseToolNamesIfPresent(c, body)
+	// 压缩仿真回执：把 compaction 块写回 content 首位并补 usage.iterations 记账。
+	body = injectEmulatedClaudeCompaction(c, body, usage)
 	c.Data(resp.StatusCode, contentType, body)
 	return usage, nil
 }

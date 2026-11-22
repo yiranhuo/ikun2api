@@ -62,6 +62,12 @@ func (s *SettingService) GetGatewayFidelitySettings(ctx context.Context) (*Gatew
 		if _, ok := fields["thinking_binding_gated"]; !ok {
 			settings.ThinkingBindingGated = defaults.ThinkingBindingGated
 		}
+		if _, ok := fields["body_budget_floor"]; !ok {
+			settings.BodyBudgetFloor = defaults.BodyBudgetFloor
+		}
+		if _, ok := fields["body_budget_floor_value"]; !ok || settings.BodyBudgetFloorValue <= 0 {
+			settings.BodyBudgetFloorValue = defaults.BodyBudgetFloorValue
+		}
 	}
 
 	return &settings, nil
@@ -74,6 +80,9 @@ func (s *SettingService) SetGatewayFidelitySettings(ctx context.Context, setting
 	}
 	if settings.ToolMaxTokensFloorValue <= 0 {
 		settings.ToolMaxTokensFloorValue = DefaultGatewayFidelitySettings().ToolMaxTokensFloorValue
+	}
+	if settings.BodyBudgetFloorValue <= 0 {
+		settings.BodyBudgetFloorValue = DefaultGatewayFidelitySettings().BodyBudgetFloorValue
 	}
 
 	data, err := json.Marshal(settings)
@@ -132,6 +141,8 @@ type gatewayFidelityFlags struct {
 	toolMaxTokensFloor  bool
 	toolMaxTokensValue  int64
 	thinkingBindingGate bool
+	bodyBudgetFloor     bool
+	bodyBudgetFloorVal  int64
 }
 
 // ResolveGatewayFidelity 解析网关保真度修复开关，并按分组/账号级别做排除判断。
@@ -155,6 +166,8 @@ func (s *SettingService) ResolveGatewayFidelity(ctx context.Context, accountID i
 		toolMaxTokensFloor:  settings.ToolMaxTokensFloor,
 		toolMaxTokensValue:  settings.ToolMaxTokensFloorValue,
 		thinkingBindingGate: settings.ThinkingBindingGated,
+		bodyBudgetFloor:     settings.BodyBudgetFloor,
+		bodyBudgetFloorVal:  settings.BodyBudgetFloorValue,
 	}
 }
 

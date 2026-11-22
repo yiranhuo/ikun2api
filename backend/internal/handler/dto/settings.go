@@ -533,6 +533,8 @@ type GatewayFidelitySettings struct {
 	ToolMaxTokensFloor      bool    `json:"tool_max_tokens_floor"`
 	ToolMaxTokensFloorValue int64   `json:"tool_max_tokens_floor_value"`
 	ThinkingBindingGated    bool    `json:"thinking_binding_gated"`
+	BodyBudgetFloor         bool    `json:"body_budget_floor"`
+	BodyBudgetFloorValue    int64   `json:"body_budget_floor_value"`
 	ExcludedGroups          []int64 `json:"excluded_groups"`
 	ExcludedAccounts        []int64 `json:"excluded_accounts"`
 }

@@ -1538,6 +1538,8 @@ export interface GatewayFidelitySettings {
   tool_max_tokens_floor: boolean;
   tool_max_tokens_floor_value: number;
   thinking_binding_gated: boolean;
+  body_budget_floor: boolean;
+  body_budget_floor_value: number;
   excluded_groups: number[];
   excluded_accounts: number[];
 }

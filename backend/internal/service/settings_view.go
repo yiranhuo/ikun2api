@@ -572,6 +572,11 @@ type GatewayFidelitySettings struct {
 	ToolMaxTokensFloorValue int64 `json:"tool_max_tokens_floor_value"`
 	// ThinkingBindingGated 只有显式携带 thinking-binding-controls beta 才做签名 400 自动剥离重试
 	ThinkingBindingGated bool `json:"thinking_binding_gated"`
+	// BodyBudgetFloor 正文预算保底：max_tokens 过小时思考会把预算全部吃满，
+	// 正文一个字都写不出来（stop_reason=max_tokens 且 content 无 text 块）。
+	// 开启后对任意请求把 max_tokens 抬到 BodyBudgetFloorValue。
+	BodyBudgetFloor      bool  `json:"body_budget_floor"`
+	BodyBudgetFloorValue int64 `json:"body_budget_floor_value"`
 	// ExcludedGroups / ExcludedAccounts 分组级、账号级排除名单（留空表示全部生效）
 	ExcludedGroups   []int64 `json:"excluded_groups"`
 	ExcludedAccounts []int64 `json:"excluded_accounts"`
@@ -585,6 +590,8 @@ func DefaultGatewayFidelitySettings() *GatewayFidelitySettings {
 		ToolMaxTokensFloor:      true,
 		ToolMaxTokensFloorValue: 4096,
 		ThinkingBindingGated:    true,
+		BodyBudgetFloor:         true,
+		BodyBudgetFloorValue:    512,
 		ExcludedGroups:          []int64{},
 		ExcludedAccounts:        []int64{},
 	}

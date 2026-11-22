@@ -1230,6 +1230,12 @@ export default {
         thinkingBindingGated: 'Thinking 签名重试 Beta 门控',
         thinkingBindingGatedHint:
           '只有请求显式携带 thinking-binding-controls beta 时才做「剥离历史 thinking 后重试」，否则原样返回上游 400',
+        bodyBudgetFloor: '正文预算保底',
+        bodyBudgetFloorHint:
+          '任何请求（不限工具请求）max_tokens 低于下限时自动抬高，避免思考吃满预算后正文为空',
+        bodyBudgetFloorValue: '正文保底值',
+        bodyBudgetFloorValueHint:
+          '取值范围 64 - 128000，推荐 512；max_tokens 只是输出上限，抬高不会额外计费',
         excludedGroups: '分组级排除',
         excludedGroupsHint:
           '填写分组 ID，命中这些分组的请求不应用上述修复（留空表示全部分组生效）',
@@ -1241,6 +1247,7 @@ export default {
         groupPlaceholder: '分组 ID',
         accountPlaceholder: '账号 ID',
         validationFloorRange: '抬底目标值必须在 256 到 128000 之间',
+        validationBodyFloorRange: '正文保底值必须在 64 到 128000 之间',
         saved: '网关保真度修复设置保存成功',
         saveFailed: '保存网关保真度修复设置失败'
       },

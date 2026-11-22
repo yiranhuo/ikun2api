@@ -159,6 +159,46 @@ func TestGatewayFidelityApplyToolEffortCap(t *testing.T) {
 	})
 }
 
+func TestGatewayFidelityApplyBodyBudgetFloor(t *testing.T) {
+	t.Run("raises small max_tokens without tools", func(t *testing.T) {
+		out, changed := gatewayFidelityApplyBodyBudgetFloor(
+			[]byte(`{"max_tokens":32,"messages":[]}`), 512)
+		require.True(t, changed)
+		require.Equal(t, int64(512), gjson.GetBytes(out, "max_tokens").Int())
+	})
+
+	t.Run("keeps requests at or above floor", func(t *testing.T) {
+		for _, body := range []string{
+			`{"max_tokens":512,"messages":[]}`,
+			`{"max_tokens":4096,"messages":[]}`,
+		} {
+			_, changed := gatewayFidelityApplyBodyBudgetFloor([]byte(body), 512)
+			require.False(t, changed)
+		}
+	})
+
+	t.Run("skips requests missing max_tokens", func(t *testing.T) {
+		_, changed := gatewayFidelityApplyBodyBudgetFloor([]byte(`{"messages":[]}`), 512)
+		require.False(t, changed)
+	})
+
+	t.Run("preserves other fields", func(t *testing.T) {
+		out, changed := gatewayFidelityApplyBodyBudgetFloor(
+			[]byte(`{"model":"claude-opus-5-5","max_tokens":32,"system":"s","messages":[{"role":"user","content":"hi"}]}`), 512)
+		require.True(t, changed)
+		require.Equal(t, "claude-opus-5-5", gjson.GetBytes(out, "model").String())
+		require.Equal(t, "s", gjson.GetBytes(out, "system").String())
+		require.Equal(t, "hi", gjson.GetBytes(out, "messages.0.content").String())
+	})
+
+	t.Run("ignores non-positive floor and empty body", func(t *testing.T) {
+		_, changed := gatewayFidelityApplyBodyBudgetFloor([]byte(`{"max_tokens":32}`), 0)
+		require.False(t, changed)
+		_, changed = gatewayFidelityApplyBodyBudgetFloor(nil, 512)
+		require.False(t, changed)
+	})
+}
+
 func TestGatewayFidelityBodyHasContextManagement(t *testing.T) {
 	require.True(t, gatewayFidelityBodyHasContextManagement(
 		[]byte(`{"context_management":{"edits":[]}}`)))

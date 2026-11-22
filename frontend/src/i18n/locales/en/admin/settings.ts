@@ -1237,6 +1237,12 @@ export default {
         thinkingBindingGated: 'Beta gating of thinking signature retries',
         thinkingBindingGatedHint:
           'Only requests that explicitly send the thinking-binding-controls beta get the "strip historical thinking and retry" repair; others receive the upstream 400 unchanged',
+        bodyBudgetFloor: 'Body budget floor',
+        bodyBudgetFloorHint:
+          'Raise max_tokens for any request (not just tool requests) below the floor, so thinking cannot consume the whole budget and leave the body empty',
+        bodyBudgetFloorValue: 'Body floor value',
+        bodyBudgetFloorValueHint:
+          'Between 64 and 128000, 512 recommended. max_tokens is only an upper bound, raising it does not add cost.',
         excludedGroups: 'Group exclusions',
         excludedGroupsHint:
           'Group IDs that skip the repairs above. Leave empty to apply to every group.',
@@ -1248,6 +1254,8 @@ export default {
         groupPlaceholder: 'Group ID',
         accountPlaceholder: 'Account ID',
         validationFloorRange: 'Floor value must be between 256 and 128000',
+        validationBodyFloorRange:
+          'Body floor value must be between 64 and 128000',
         saved: 'Gateway fidelity settings saved',
         saveFailed: 'Failed to save gateway fidelity settings'
       },

@@ -392,6 +392,8 @@ type UpdateGatewayFidelitySettingsRequest struct {
 	ToolMaxTokensFloor      bool    `json:"tool_max_tokens_floor"`
 	ToolMaxTokensFloorValue int64   `json:"tool_max_tokens_floor_value"`
 	ThinkingBindingGated    bool    `json:"thinking_binding_gated"`
+	BodyBudgetFloor         bool    `json:"body_budget_floor"`
+	BodyBudgetFloorValue    int64   `json:"body_budget_floor_value"`
 	ExcludedGroups          []int64 `json:"excluded_groups"`
 	ExcludedAccounts        []int64 `json:"excluded_accounts"`
 }
@@ -419,6 +421,16 @@ func (h *SettingHandler) UpdateGatewayFidelitySettings(c *gin.Context) {
 		response.BadRequest(c, "too many excluded groups or accounts")
 		return
 	}
+	const minBodyFloor = 64
+	const maxBodyFloor = 128000
+	bodyFloor := req.BodyBudgetFloorValue
+	if bodyFloor == 0 {
+		bodyFloor = service.DefaultGatewayFidelitySettings().BodyBudgetFloorValue
+	}
+	if bodyFloor < minBodyFloor || bodyFloor > maxBodyFloor {
+		response.BadRequest(c, "body_budget_floor_value must be between 64 and 128000")
+		return
+	}
 
 	settings := &service.GatewayFidelitySettings{
 		Enabled:                 req.Enabled,
@@ -426,6 +438,8 @@ func (h *SettingHandler) UpdateGatewayFidelitySettings(c *gin.Context) {
 		ToolMaxTokensFloor:      req.ToolMaxTokensFloor,
 		ToolMaxTokensFloorValue: floor,
 		ThinkingBindingGated:    req.ThinkingBindingGated,
+		BodyBudgetFloor:         req.BodyBudgetFloor,
+		BodyBudgetFloorValue:    bodyFloor,
 		ExcludedGroups:          dedupePositiveIDs(req.ExcludedGroups),
 		ExcludedAccounts:        dedupePositiveIDs(req.ExcludedAccounts),
 	}
@@ -460,6 +474,8 @@ func gatewayFidelityDTO(settings *service.GatewayFidelitySettings) dto.GatewayFi
 		ToolMaxTokensFloor:      settings.ToolMaxTokensFloor,
 		ToolMaxTokensFloorValue: settings.ToolMaxTokensFloorValue,
 		ThinkingBindingGated:    settings.ThinkingBindingGated,
+		BodyBudgetFloor:         settings.BodyBudgetFloor,
+		BodyBudgetFloorValue:    settings.BodyBudgetFloorValue,
 		ExcludedGroups:          groups,
 		ExcludedAccounts:        accounts,
 	}

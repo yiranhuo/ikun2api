@@ -52,6 +52,8 @@ func anthropicBetaHeaderHasAnyPrefix(header string, prefixes ...string) bool {
 //     也无 compact-* 时返回官方 400（否则官方会直接拒，网关却静默接受，被判为不可接入）。
 //  2. 工具请求 max_tokens 抬底：带非空 tools 且 max_tokens 低于下限时抬到下限，
 //     避免思考预算吃满后思考块占满输出、工具参数回填为空。
+//  3. 正文预算保底：任意请求 max_tokens 低于下限时抬到下限，避免思考吃满预算后
+//     正文一个字都写不出来（stop_reason=max_tokens 且 content 无 text 块）。
 //
 // 返回 handled=true 表示已经写回客户端响应（调用方应立即返回）。
 func (s *GatewayService) applyGatewayFidelityRequestRewrites(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest) (handled bool) {
@@ -62,7 +64,7 @@ func (s *GatewayService) applyGatewayFidelityRequestRewrites(ctx context.Context
 		return false
 	}
 	flags := s.settingService.ResolveGatewayFidelity(ctx, account.ID, parsed.GroupID)
-	if !flags.entranceStrict && !flags.toolMaxTokensFloor {
+	if !flags.entranceStrict && !flags.toolMaxTokensFloor && !flags.bodyBudgetFloor {
 		return false
 	}
 
@@ -104,6 +106,16 @@ func (s *GatewayService) applyGatewayFidelityRequestRewrites(ctx context.Context
 		// 客户端显式给了 output_config.effort 时一律尊重，不覆盖。
 		if lowered, ok := gatewayFidelityApplyToolEffortCap(body, flags.toolMaxTokensValue); ok {
 			body = lowered
+			changed = true
+		}
+	}
+
+	// 正文预算保底：任何请求（不限工具请求）只要 max_tokens 低于下限，思考就可能
+	// 把整份预算吃满，导致 stop_reason=max_tokens 且正文一个字都没有。抬到下限只是
+	// 抬高上限，不产生额外计费，也不改变 input_tokens。
+	if flags.bodyBudgetFloor && flags.bodyBudgetFloorVal > 0 {
+		if updated, ok := gatewayFidelityApplyBodyBudgetFloor(body, flags.bodyBudgetFloorVal); ok {
+			body = updated
 			changed = true
 		}
 	}
@@ -175,6 +187,26 @@ func gatewayFidelityApplyToolMaxTokensFloor(body []byte, floor int64) ([]byte, b
 	}
 	tools := gjson.GetBytes(body, "tools")
 	if !tools.Exists() || !tools.IsArray() || len(tools.Array()) == 0 {
+		return body, false
+	}
+	maxTokens := gjson.GetBytes(body, "max_tokens")
+	if !maxTokens.Exists() || maxTokens.Type != gjson.Number {
+		return body, false
+	}
+	if maxTokens.Int() >= floor {
+		return body, false
+	}
+	updated, err := sjson.SetBytes(body, "max_tokens", floor)
+	if err != nil {
+		return body, false
+	}
+	return updated, true
+}
+
+// gatewayFidelityApplyBodyBudgetFloor 对任意 Anthropic 请求做 max_tokens 抬底
+// （不要求带 tools）。只抬高上限，不产生额外计费，也不改变 input_tokens。
+func gatewayFidelityApplyBodyBudgetFloor(body []byte, floor int64) ([]byte, bool) {
+	if floor <= 0 || len(body) == 0 {
 		return body, false
 	}
 	maxTokens := gjson.GetBytes(body, "max_tokens")

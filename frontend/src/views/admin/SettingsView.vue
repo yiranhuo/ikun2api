@@ -867,6 +867,57 @@
                     />
                   </div>
 
+                  <!-- Body budget floor -->
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t("admin.settings.gatewayFidelity.bodyBudgetFloor")
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t(
+                            "admin.settings.gatewayFidelity.bodyBudgetFloorHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <Toggle v-model="gatewayFidelityForm.body_budget_floor" />
+                  </div>
+
+                  <!-- Body budget floor value -->
+                  <div
+                    v-if="gatewayFidelityForm.body_budget_floor"
+                    class="flex items-center justify-between"
+                  >
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.gatewayFidelity.bodyBudgetFloorValue",
+                          )
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t(
+                            "admin.settings.gatewayFidelity.bodyBudgetFloorValueHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <input
+                      v-model.number="gatewayFidelityForm.body_budget_floor_value"
+                      type="number"
+                      min="64"
+                      max="128000"
+                      class="input w-32 text-right"
+                    />
+                  </div>
+
                   <!-- Thinking binding gate -->
                   <div class="flex items-center justify-between">
                     <div>
@@ -9419,6 +9470,8 @@ const gatewayFidelityForm = reactive({
   tool_max_tokens_floor: true,
   tool_max_tokens_floor_value: 4096,
   thinking_binding_gated: true,
+  body_budget_floor: true,
+  body_budget_floor_value: 512,
   excluded_groups: [] as number[],
   excluded_accounts: [] as number[],
 });
@@ -12700,6 +12753,13 @@ async function saveGatewayFidelitySettings() {
     );
     return;
   }
+  const bodyFloor = Number(gatewayFidelityForm.body_budget_floor_value);
+  if (!Number.isFinite(bodyFloor) || bodyFloor < 64 || bodyFloor > 128000) {
+    appStore.showError(
+      t("admin.settings.gatewayFidelity.validationBodyFloorRange"),
+    );
+    return;
+  }
   gatewayFidelitySaving.value = true;
   try {
     const updated = await adminAPI.settings.updateGatewayFidelitySettings({
@@ -12708,6 +12768,8 @@ async function saveGatewayFidelitySettings() {
       tool_max_tokens_floor: gatewayFidelityForm.tool_max_tokens_floor,
       tool_max_tokens_floor_value: floor,
       thinking_binding_gated: gatewayFidelityForm.thinking_binding_gated,
+      body_budget_floor: gatewayFidelityForm.body_budget_floor,
+      body_budget_floor_value: bodyFloor,
       excluded_groups: gatewayFidelityForm.excluded_groups.filter(
         (v) => Number(v) > 0,
       ),

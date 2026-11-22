@@ -1212,6 +1212,38 @@ export default {
         saved: '整流器设置保存成功',
         saveFailed: '保存整流器设置失败'
       },
+      gatewayFidelity: {
+        title: '网关保真度修复',
+        description:
+          '让经过本网关的请求与直连官方线路表现一致：严格入口、工具请求 max_tokens 抬底、thinking 签名重试的 beta 门控',
+        enabled: '启用网关保真度修复',
+        enabledHint: '总开关，关闭后下列所有修复均不生效（回滚到原有行为）',
+        entranceStrict: '严格入口校验',
+        entranceStrictHint:
+          '请求体带 context_management 却缺少 context-management-* / compact-* beta 时直接返回 400，与官方一致',
+        toolMaxTokensFloor: '工具请求 max_tokens 抬底',
+        toolMaxTokensFloorHint:
+          '请求带 tools 且 max_tokens 低于下限时自动抬高，避免思考预算吃满后工具参数回填为空',
+        toolMaxTokensFloorValue: '抬底目标值',
+        toolMaxTokensFloorValueHint:
+          '取值范围 256 - 128000，推荐 4096；max_tokens 只是输出上限，抬高不会额外计费',
+        thinkingBindingGated: 'Thinking 签名重试 Beta 门控',
+        thinkingBindingGatedHint:
+          '只有请求显式携带 thinking-binding-controls beta 时才做「剥离历史 thinking 后重试」，否则原样返回上游 400',
+        excludedGroups: '分组级排除',
+        excludedGroupsHint:
+          '填写分组 ID，命中这些分组的请求不应用上述修复（留空表示全部分组生效）',
+        excludedAccounts: '账号级排除',
+        excludedAccountsHint:
+          '填写账号 ID，命中这些账号的请求不应用上述修复（留空表示全部账号生效）',
+        addGroup: '添加分组 ID',
+        addAccount: '添加账号 ID',
+        groupPlaceholder: '分组 ID',
+        accountPlaceholder: '账号 ID',
+        validationFloorRange: '抬底目标值必须在 256 到 128000 之间',
+        saved: '网关保真度修复设置保存成功',
+        saveFailed: '保存网关保真度修复设置失败'
+      },
       betaPolicy: {
         title: 'Beta 策略',
         description: '配置转发 Anthropic API 请求时如何处理 Beta 特性。仅适用于 /v1/messages 接口。',

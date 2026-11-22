@@ -169,6 +169,11 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 			return nil, err
 		}
 	}
+	// 网关保真度修复：严格入口（缺 beta 的 context_management 直接 400）与
+	// 工具请求 max_tokens 抬底。放在 passthrough / 兼容链路之前，两条路都生效。
+	if handled := s.applyGatewayFidelityRequestRewrites(ctx, c, account, parsed); handled {
+		return nil, fmt.Errorf("gateway fidelity entrance rejected request")
+	}
 	// Anthropic Fast is requested with speed=fast rather than OpenAI's
 	// service_tier. Attach it at this shared boundary so passthrough, OAuth and
 	// partial-stream results all use the same billing and usage-log path.

@@ -560,6 +560,36 @@ func DefaultRectifierSettings() *RectifierSettings {
 	}
 }
 
+// GatewayFidelitySettings 网关保真度修复配置。
+// 这一组开关把「客户端在上游官方线路能过、但经过网关后被改写」的差异收敛掉：
+// 严格入口、工具请求 max_tokens 抬底、thinking 签名重试的 beta 门控。
+type GatewayFidelitySettings struct {
+	Enabled bool `json:"enabled"` // 总开关
+	// EntranceStrict 缺 anthropic-beta 的 context_management 直接 400（与官方一致）
+	EntranceStrict bool `json:"entrance_strict"`
+	// ToolMaxTokensFloor 带 tools 且 max_tokens 低于下限时自动抬到下限
+	ToolMaxTokensFloor      bool  `json:"tool_max_tokens_floor"`
+	ToolMaxTokensFloorValue int64 `json:"tool_max_tokens_floor_value"`
+	// ThinkingBindingGated 只有显式携带 thinking-binding-controls beta 才做签名 400 自动剥离重试
+	ThinkingBindingGated bool `json:"thinking_binding_gated"`
+	// ExcludedGroups / ExcludedAccounts 分组级、账号级排除名单（留空表示全部生效）
+	ExcludedGroups   []int64 `json:"excluded_groups"`
+	ExcludedAccounts []int64 `json:"excluded_accounts"`
+}
+
+// DefaultGatewayFidelitySettings 返回默认的网关保真度修复配置（全部启用）。
+func DefaultGatewayFidelitySettings() *GatewayFidelitySettings {
+	return &GatewayFidelitySettings{
+		Enabled:                 true,
+		EntranceStrict:          true,
+		ToolMaxTokensFloor:      true,
+		ToolMaxTokensFloorValue: 4096,
+		ThinkingBindingGated:    true,
+		ExcludedGroups:          []int64{},
+		ExcludedAccounts:        []int64{},
+	}
+}
+
 // Beta Policy 策略常量
 const (
 	BetaPolicyActionPass   = "pass"   // 透传，不做任何处理

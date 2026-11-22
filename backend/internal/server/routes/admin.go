@@ -649,6 +649,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpA
 		// 请求整流器配置
 		adminSettings.GET("/rectifier", h.Admin.Setting.GetRectifierSettings)
 		adminSettings.PUT("/rectifier", h.Admin.Setting.UpdateRectifierSettings)
+		// 网关保真度修复配置（严格入口 / 工具 max_tokens 抬底 / thinking 签名 beta 门控）
+		adminSettings.GET("/gateway-fidelity", h.Admin.Setting.GetGatewayFidelitySettings)
+		adminSettings.PUT("/gateway-fidelity", h.Admin.Setting.UpdateGatewayFidelitySettings)
 		// Beta 策略配置
 		adminSettings.GET("/beta-policy", h.Admin.Setting.GetBetaPolicySettings)
 		adminSettings.PUT("/beta-policy", h.Admin.Setting.UpdateBetaPolicySettings)

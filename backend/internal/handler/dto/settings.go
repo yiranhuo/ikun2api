@@ -526,6 +526,17 @@ type RectifierSettings struct {
 	APIKeySignaturePatterns  []string `json:"apikey_signature_patterns"`
 }
 
+// GatewayFidelitySettings 网关保真度修复配置 DTO
+type GatewayFidelitySettings struct {
+	Enabled                 bool    `json:"enabled"`
+	EntranceStrict          bool    `json:"entrance_strict"`
+	ToolMaxTokensFloor      bool    `json:"tool_max_tokens_floor"`
+	ToolMaxTokensFloorValue int64   `json:"tool_max_tokens_floor_value"`
+	ThinkingBindingGated    bool    `json:"thinking_binding_gated"`
+	ExcludedGroups          []int64 `json:"excluded_groups"`
+	ExcludedAccounts        []int64 `json:"excluded_accounts"`
+}
+
 // BetaPolicyRule Beta 策略规则 DTO
 type BetaPolicyRule struct {
 	BetaToken            string   `json:"beta_token"`

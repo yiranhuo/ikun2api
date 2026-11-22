@@ -102,6 +102,12 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
 	}
 	thinkingScope, canRememberThinking := claudeThinkingRecoveryScope(c, account, input.RequestModel, metadataSession)
 	thinkingRecoveryEnabled := s.settingService != nil && s.settingService.IsSignatureRectifierEnabled(ctx)
+	// 保真度门控：未显式携带 thinking-binding-controls beta 的请求不做任何
+	// thinking 历史改写，让上游的签名校验结果原样返回（带 beta 才允许修复）。
+	thinkingRepairAllowed := s.gatewayFidelityAllowSignatureRepair(ctx, c, account, input.Parsed)
+	if !thinkingRepairAllowed {
+		thinkingRecoveryEnabled = false
+	}
 	if supportsClaudeThinkingHistoryRecovery(account, input.RequestModel) && canRememberThinking && thinkingRecoveryEnabled {
 		known := s.claudeThinkingRecovery.known(thinkingScope, time.Now())
 		if len(known) > 0 {
@@ -149,7 +155,7 @@ func (s *GatewayService) forwardAnthropicAPIKeyPassthroughWithInput(
 		// A precise Anthropic thinking-signature 400 is safe to repair once on the
 		// same API Key account. Other 400 responses stay untouched and continue
 		// through the existing passthrough handling below.
-		if resp.StatusCode == http.StatusBadRequest && !retriedThinkingSignature {
+		if resp.StatusCode == http.StatusBadRequest && !retriedThinkingSignature && thinkingRepairAllowed {
 			respBody, readErr := s.readUpstreamErrorBody(resp)
 			if readErr == nil {
 				originalHeader := resp.Header.Clone()

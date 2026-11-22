@@ -374,6 +374,116 @@ func (h *SettingHandler) UpdateRectifierSettings(c *gin.Context) {
 	})
 }
 
+// GetGatewayFidelitySettings 获取网关保真度修复配置
+// GET /api/v1/admin/settings/gateway-fidelity
+func (h *SettingHandler) GetGatewayFidelitySettings(c *gin.Context) {
+	settings, err := h.settingService.GetGatewayFidelitySettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gatewayFidelityDTO(settings))
+}
+
+// UpdateGatewayFidelitySettingsRequest 更新网关保真度修复配置请求
+type UpdateGatewayFidelitySettingsRequest struct {
+	Enabled                 bool    `json:"enabled"`
+	EntranceStrict          bool    `json:"entrance_strict"`
+	ToolMaxTokensFloor      bool    `json:"tool_max_tokens_floor"`
+	ToolMaxTokensFloorValue int64   `json:"tool_max_tokens_floor_value"`
+	ThinkingBindingGated    bool    `json:"thinking_binding_gated"`
+	ExcludedGroups          []int64 `json:"excluded_groups"`
+	ExcludedAccounts        []int64 `json:"excluded_accounts"`
+}
+
+// UpdateGatewayFidelitySettings 更新网关保真度修复配置
+// PUT /api/v1/admin/settings/gateway-fidelity
+func (h *SettingHandler) UpdateGatewayFidelitySettings(c *gin.Context) {
+	var req UpdateGatewayFidelitySettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	const minFloor = 256
+	const maxFloor = 128000
+	floor := req.ToolMaxTokensFloorValue
+	if floor == 0 {
+		floor = service.DefaultGatewayFidelitySettings().ToolMaxTokensFloorValue
+	}
+	if floor < minFloor || floor > maxFloor {
+		response.BadRequest(c, "tool_max_tokens_floor_value must be between 256 and 128000")
+		return
+	}
+	if len(req.ExcludedGroups) > 200 || len(req.ExcludedAccounts) > 500 {
+		response.BadRequest(c, "too many excluded groups or accounts")
+		return
+	}
+
+	settings := &service.GatewayFidelitySettings{
+		Enabled:                 req.Enabled,
+		EntranceStrict:          req.EntranceStrict,
+		ToolMaxTokensFloor:      req.ToolMaxTokensFloor,
+		ToolMaxTokensFloorValue: floor,
+		ThinkingBindingGated:    req.ThinkingBindingGated,
+		ExcludedGroups:          dedupePositiveIDs(req.ExcludedGroups),
+		ExcludedAccounts:        dedupePositiveIDs(req.ExcludedAccounts),
+	}
+	if err := h.settingService.SetGatewayFidelitySettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	updated, err := h.settingService.GetGatewayFidelitySettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gatewayFidelityDTO(updated))
+}
+
+func gatewayFidelityDTO(settings *service.GatewayFidelitySettings) dto.GatewayFidelitySettings {
+	if settings == nil {
+		settings = service.DefaultGatewayFidelitySettings()
+	}
+	groups := settings.ExcludedGroups
+	if groups == nil {
+		groups = []int64{}
+	}
+	accounts := settings.ExcludedAccounts
+	if accounts == nil {
+		accounts = []int64{}
+	}
+	return dto.GatewayFidelitySettings{
+		Enabled:                 settings.Enabled,
+		EntranceStrict:          settings.EntranceStrict,
+		ToolMaxTokensFloor:      settings.ToolMaxTokensFloor,
+		ToolMaxTokensFloorValue: settings.ToolMaxTokensFloorValue,
+		ThinkingBindingGated:    settings.ThinkingBindingGated,
+		ExcludedGroups:          groups,
+		ExcludedAccounts:        accounts,
+	}
+}
+
+func dedupePositiveIDs(values []int64) []int64 {
+	if len(values) == 0 {
+		return []int64{}
+	}
+	seen := make(map[int64]struct{}, len(values))
+	result := make([]int64, 0, len(values))
+	for _, v := range values {
+		if v <= 0 {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		result = append(result, v)
+	}
+	return result
+}
+
 // GetBetaPolicySettings 获取 Beta 策略配置
 // GET /api/v1/admin/settings/beta-policy
 func (h *SettingHandler) GetBetaPolicySettings(c *gin.Context) {

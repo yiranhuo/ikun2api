@@ -751,6 +751,319 @@
               </template>
             </div>
           </div>
+          <!-- Gateway Fidelity Repair Settings -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.gatewayFidelity.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.gatewayFidelity.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div
+                v-if="gatewayFidelityLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div
+                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                ></div>
+                {{ t("common.loading") }}
+              </div>
+
+              <template v-else>
+                <!-- Master Toggle -->
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.gatewayFidelity.enabled")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.gatewayFidelity.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="gatewayFidelityForm.enabled" />
+                </div>
+
+                <div
+                  v-if="gatewayFidelityForm.enabled"
+                  class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <!-- Strict entrance -->
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t("admin.settings.gatewayFidelity.entranceStrict")
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t("admin.settings.gatewayFidelity.entranceStrictHint")
+                        }}
+                      </p>
+                    </div>
+                    <Toggle v-model="gatewayFidelityForm.entrance_strict" />
+                  </div>
+
+                  <!-- Tool max_tokens floor -->
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.gatewayFidelity.toolMaxTokensFloor",
+                          )
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t(
+                            "admin.settings.gatewayFidelity.toolMaxTokensFloorHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <Toggle
+                      v-model="gatewayFidelityForm.tool_max_tokens_floor"
+                    />
+                  </div>
+
+                  <!-- Floor value -->
+                  <div
+                    v-if="gatewayFidelityForm.tool_max_tokens_floor"
+                    class="flex items-center justify-between"
+                  >
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.gatewayFidelity.toolMaxTokensFloorValue",
+                          )
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t(
+                            "admin.settings.gatewayFidelity.toolMaxTokensFloorValueHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <input
+                      v-model.number="
+                        gatewayFidelityForm.tool_max_tokens_floor_value
+                      "
+                      type="number"
+                      min="256"
+                      max="128000"
+                      class="input w-32 text-right"
+                    />
+                  </div>
+
+                  <!-- Thinking binding gate -->
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label
+                        class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >{{
+                          t(
+                            "admin.settings.gatewayFidelity.thinkingBindingGated",
+                          )
+                        }}</label
+                      >
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        {{
+                          t(
+                            "admin.settings.gatewayFidelity.thinkingBindingGatedHint",
+                          )
+                        }}
+                      </p>
+                    </div>
+                    <Toggle
+                      v-model="gatewayFidelityForm.thinking_binding_gated"
+                    />
+                  </div>
+
+                  <!-- Group exclusions -->
+                  <div
+                    class="border-t border-gray-100 pt-4 dark:border-dark-700"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <label
+                          class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                          >{{
+                            t(
+                              "admin.settings.gatewayFidelity.excludedGroups",
+                            )
+                          }}</label
+                        >
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                          {{
+                            t(
+                              "admin.settings.gatewayFidelity.excludedGroupsHint",
+                            )
+                          }}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        @click="gatewayFidelityForm.excluded_groups.push(0)"
+                      >
+                        + {{ t("admin.settings.gatewayFidelity.addGroup") }}
+                      </button>
+                    </div>
+                    <div
+                      v-if="gatewayFidelityForm.excluded_groups.length"
+                      class="mt-3 flex flex-wrap gap-2"
+                    >
+                      <div
+                        v-for="(_, index) in gatewayFidelityForm.excluded_groups"
+                        :key="`gf-group-${index}`"
+                        class="flex items-center gap-1"
+                      >
+                        <input
+                          v-model.number="
+                            gatewayFidelityForm.excluded_groups[index]
+                          "
+                          type="number"
+                          min="1"
+                          class="input w-28 text-right"
+                          :placeholder="
+                            t(
+                              'admin.settings.gatewayFidelity.groupPlaceholder',
+                            )
+                          "
+                        />
+                        <button
+                          type="button"
+                          class="text-gray-400 hover:text-red-500"
+                          @click="
+                            gatewayFidelityForm.excluded_groups.splice(index, 1)
+                          "
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Account exclusions -->
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <label
+                          class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                          >{{
+                            t(
+                              "admin.settings.gatewayFidelity.excludedAccounts",
+                            )
+                          }}</label
+                        >
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                          {{
+                            t(
+                              "admin.settings.gatewayFidelity.excludedAccountsHint",
+                            )
+                          }}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        @click="gatewayFidelityForm.excluded_accounts.push(0)"
+                      >
+                        + {{ t("admin.settings.gatewayFidelity.addAccount") }}
+                      </button>
+                    </div>
+                    <div
+                      v-if="gatewayFidelityForm.excluded_accounts.length"
+                      class="mt-3 flex flex-wrap gap-2"
+                    >
+                      <div
+                        v-for="(_, index) in gatewayFidelityForm
+                          .excluded_accounts"
+                        :key="`gf-account-${index}`"
+                        class="flex items-center gap-1"
+                      >
+                        <input
+                          v-model.number="
+                            gatewayFidelityForm.excluded_accounts[index]
+                          "
+                          type="number"
+                          min="1"
+                          class="input w-28 text-right"
+                          :placeholder="
+                            t(
+                              'admin.settings.gatewayFidelity.accountPlaceholder',
+                            )
+                          "
+                        />
+                        <button
+                          type="button"
+                          class="text-gray-400 hover:text-red-500"
+                          @click="
+                            gatewayFidelityForm.excluded_accounts.splice(
+                              index,
+                              1,
+                            )
+                          "
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Save Button -->
+                <div
+                  class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700"
+                >
+                  <button
+                    type="button"
+                    @click="saveGatewayFidelitySettings"
+                    :disabled="gatewayFidelitySaving"
+                    class="btn btn-primary btn-sm"
+                  >
+                    <svg
+                      v-if="gatewayFidelitySaving"
+                      class="mr-1 h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    {{
+                      gatewayFidelitySaving
+                        ? t("common.saving")
+                        : t("common.save")
+                    }}
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
           <!-- Beta Policy Settings -->
           <div class="card">
             <div
@@ -9097,6 +9410,19 @@ const rectifierForm = reactive({
   apikey_signature_patterns: [] as string[],
 });
 
+// Gateway Fidelity 状态
+const gatewayFidelityLoading = ref(true);
+const gatewayFidelitySaving = ref(false);
+const gatewayFidelityForm = reactive({
+  enabled: true,
+  entrance_strict: true,
+  tool_max_tokens_floor: true,
+  tool_max_tokens_floor_value: 4096,
+  thinking_binding_gated: true,
+  excluded_groups: [] as number[],
+  excluded_accounts: [] as number[],
+});
+
 // Beta Policy 状态
 const betaPolicyLoading = ref(true);
 const betaPolicySaving = ref(false);
@@ -12347,6 +12673,68 @@ const betaPolicyScopeOptions = computed(() => [
   { value: "bedrock", label: t("admin.settings.betaPolicy.scopeBedrock") },
 ]);
 
+// Gateway Fidelity 方法
+async function loadGatewayFidelitySettings() {
+  gatewayFidelityLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getGatewayFidelitySettings();
+    Object.assign(gatewayFidelityForm, settings);
+    if (!Array.isArray(gatewayFidelityForm.excluded_groups)) {
+      gatewayFidelityForm.excluded_groups = [];
+    }
+    if (!Array.isArray(gatewayFidelityForm.excluded_accounts)) {
+      gatewayFidelityForm.excluded_accounts = [];
+    }
+  } catch (error) {
+    console.error("Failed to load gateway fidelity settings:", error);
+  } finally {
+    gatewayFidelityLoading.value = false;
+  }
+}
+
+async function saveGatewayFidelitySettings() {
+  const floor = Number(gatewayFidelityForm.tool_max_tokens_floor_value);
+  if (!Number.isFinite(floor) || floor < 256 || floor > 128000) {
+    appStore.showError(
+      t("admin.settings.gatewayFidelity.validationFloorRange"),
+    );
+    return;
+  }
+  gatewayFidelitySaving.value = true;
+  try {
+    const updated = await adminAPI.settings.updateGatewayFidelitySettings({
+      enabled: gatewayFidelityForm.enabled,
+      entrance_strict: gatewayFidelityForm.entrance_strict,
+      tool_max_tokens_floor: gatewayFidelityForm.tool_max_tokens_floor,
+      tool_max_tokens_floor_value: floor,
+      thinking_binding_gated: gatewayFidelityForm.thinking_binding_gated,
+      excluded_groups: gatewayFidelityForm.excluded_groups.filter(
+        (v) => Number(v) > 0,
+      ),
+      excluded_accounts: gatewayFidelityForm.excluded_accounts.filter(
+        (v) => Number(v) > 0,
+      ),
+    });
+    Object.assign(gatewayFidelityForm, updated);
+    if (!Array.isArray(gatewayFidelityForm.excluded_groups)) {
+      gatewayFidelityForm.excluded_groups = [];
+    }
+    if (!Array.isArray(gatewayFidelityForm.excluded_accounts)) {
+      gatewayFidelityForm.excluded_accounts = [];
+    }
+    appStore.showSuccess(t("admin.settings.gatewayFidelity.saved"));
+  } catch (error) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        t("admin.settings.gatewayFidelity.saveFailed"),
+      ),
+    );
+  } finally {
+    gatewayFidelitySaving.value = false;
+  }
+}
+
 // Beta Policy 方法
 const betaDisplayNames: Record<string, string> = {
   "fast-mode-2026-02-01": "Fast Mode",
@@ -12905,6 +13293,7 @@ onMounted(() => {
   loadPanelRateLimitSettings();
   loadStreamTimeoutSettings();
   loadRectifierSettings();
+  loadGatewayFidelitySettings();
   loadBetaPolicySettings();
   loadProviders();
 });

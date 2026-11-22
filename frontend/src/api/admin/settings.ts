@@ -1527,6 +1527,47 @@ export async function updateRectifierSettings(
   return data;
 }
 
+// ==================== Gateway Fidelity Settings ====================
+
+/**
+ * Gateway fidelity repair settings interface
+ */
+export interface GatewayFidelitySettings {
+  enabled: boolean;
+  entrance_strict: boolean;
+  tool_max_tokens_floor: boolean;
+  tool_max_tokens_floor_value: number;
+  thinking_binding_gated: boolean;
+  excluded_groups: number[];
+  excluded_accounts: number[];
+}
+
+/**
+ * Get gateway fidelity settings
+ * @returns Gateway fidelity settings
+ */
+export async function getGatewayFidelitySettings(): Promise<GatewayFidelitySettings> {
+  const { data } = await apiClient.get<GatewayFidelitySettings>(
+    "/admin/settings/gateway-fidelity",
+  );
+  return data;
+}
+
+/**
+ * Update gateway fidelity settings
+ * @param settings - Gateway fidelity settings to update
+ * @returns Updated settings
+ */
+export async function updateGatewayFidelitySettings(
+  settings: GatewayFidelitySettings,
+): Promise<GatewayFidelitySettings> {
+  const { data } = await apiClient.put<GatewayFidelitySettings>(
+    "/admin/settings/gateway-fidelity",
+    settings,
+  );
+  return data;
+}
+
 // ==================== OpenAI Fast Policy Settings ====================
 
 /**
@@ -1684,6 +1725,8 @@ export const settingsAPI = {
   updateStreamTimeoutSettings,
   getRectifierSettings,
   updateRectifierSettings,
+  getGatewayFidelitySettings,
+  updateGatewayFidelitySettings,
   getBetaPolicySettings,
   updateBetaPolicySettings,
   getWebSearchEmulationConfig,

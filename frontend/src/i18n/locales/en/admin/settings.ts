@@ -1218,6 +1218,39 @@ export default {
         saved: 'Rectifier settings saved',
         saveFailed: 'Failed to save rectifier settings'
       },
+      gatewayFidelity: {
+        title: 'Gateway Fidelity Repair',
+        description:
+          'Make requests through this gateway behave exactly like the official line: strict entrance, tool-request max_tokens floor, and beta gating of thinking signature retries',
+        enabled: 'Enable gateway fidelity repair',
+        enabledHint:
+          'Master switch. Turning it off disables every repair below and rolls back to the previous behaviour.',
+        entranceStrict: 'Strict entrance validation',
+        entranceStrictHint:
+          'Return 400 when the body carries context_management without a context-management-* or compact-* beta, matching the official line',
+        toolMaxTokensFloor: 'Tool request max_tokens floor',
+        toolMaxTokensFloorHint:
+          'Raise max_tokens when the request carries tools and stays below the floor, so tool arguments are never starved by the thinking budget',
+        toolMaxTokensFloorValue: 'Floor value',
+        toolMaxTokensFloorValueHint:
+          'Between 256 and 128000, 4096 recommended. max_tokens is only an upper bound, raising it does not add cost.',
+        thinkingBindingGated: 'Beta gating of thinking signature retries',
+        thinkingBindingGatedHint:
+          'Only requests that explicitly send the thinking-binding-controls beta get the "strip historical thinking and retry" repair; others receive the upstream 400 unchanged',
+        excludedGroups: 'Group exclusions',
+        excludedGroupsHint:
+          'Group IDs that skip the repairs above. Leave empty to apply to every group.',
+        excludedAccounts: 'Account exclusions',
+        excludedAccountsHint:
+          'Account IDs that skip the repairs above. Leave empty to apply to every account.',
+        addGroup: 'Add group ID',
+        addAccount: 'Add account ID',
+        groupPlaceholder: 'Group ID',
+        accountPlaceholder: 'Account ID',
+        validationFloorRange: 'Floor value must be between 256 and 128000',
+        saved: 'Gateway fidelity settings saved',
+        saveFailed: 'Failed to save gateway fidelity settings'
+      },
       betaPolicy: {
         title: 'Beta Policy',
         description: 'How to handle Beta features when configuring the forwarding of Anthropic API requests. Applicable only to the /v1/messages endpoint.',

@@ -98,6 +98,14 @@ func (s *GatewayService) applyGatewayFidelityRequestRewrites(ctx context.Context
 			body = updated
 			changed = true
 		}
+		// 抬底只解决「预算不够」，解决不了「思考长度随机」：adaptive thinking 偶尔
+		// 会把绝大部分预算花在思考上，工具参数只写一半就收尾。对预算本就贴着下限的
+		// 工具请求补一个低思考档位，把输出预算留给工具参数本身。
+		// 客户端显式给了 output_config.effort 时一律尊重，不覆盖。
+		if lowered, ok := gatewayFidelityApplyToolEffortCap(body, flags.toolMaxTokensValue); ok {
+			body = lowered
+			changed = true
+		}
 	}
 
 	if changed {
@@ -177,6 +185,42 @@ func gatewayFidelityApplyToolMaxTokensFloor(body []byte, floor int64) ([]byte, b
 		return body, false
 	}
 	updated, err := sjson.SetBytes(body, "max_tokens", floor)
+	if err != nil {
+		return body, false
+	}
+	return updated, true
+}
+
+// gatewayFidelityToolEffortCap 工具请求补充的思考档位。
+// 档位越低，thinking 占用的输出预算越少，留给工具参数的空间越大。
+const gatewayFidelityToolEffortCap = "low"
+
+// gatewayFidelityApplyToolEffortCap 为工具请求补一个低思考档位。
+//
+// 仅对「带非空 tools 且 max_tokens 未超过下限」的请求生效：预算远大于下限的客户端
+// 显然自己规划过输出空间，不该被动改档。客户端已显式声明 output_config.effort 时
+// 一律尊重，不覆盖。只写 effort，不动 output_config 里其它子字段（format 等）。
+func gatewayFidelityApplyToolEffortCap(body []byte, floor int64) ([]byte, bool) {
+	if len(body) == 0 || floor <= 0 {
+		return body, false
+	}
+	tools := gjson.GetBytes(body, "tools")
+	if !tools.Exists() || !tools.IsArray() || len(tools.Array()) == 0 {
+		return body, false
+	}
+	maxTokens := gjson.GetBytes(body, "max_tokens")
+	if !maxTokens.Exists() || maxTokens.Type != gjson.Number {
+		return body, false
+	}
+	if maxTokens.Int() > floor {
+		return body, false
+	}
+	if outputConfig := gjson.GetBytes(body, "output_config"); outputConfig.Exists() && outputConfig.IsObject() {
+		if strings.TrimSpace(outputConfig.Get("effort").String()) != "" {
+			return body, false
+		}
+	}
+	updated, err := sjson.SetBytes(body, "output_config.effort", gatewayFidelityToolEffortCap)
 	if err != nil {
 		return body, false
 	}

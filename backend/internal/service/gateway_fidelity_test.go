@@ -119,6 +119,46 @@ func TestGatewayFidelityApplyToolMaxTokensFloor(t *testing.T) {
 	})
 }
 
+func TestGatewayFidelityApplyToolEffortCap(t *testing.T) {
+	t.Run("adds low effort when output_config absent", func(t *testing.T) {
+		out, changed := gatewayFidelityApplyToolEffortCap(
+			[]byte(`{"max_tokens":4096,"tools":[{"name":"t"}]}`), 4096)
+		require.True(t, changed)
+		require.Equal(t, "low", gjson.GetBytes(out, "output_config.effort").String())
+	})
+
+	t.Run("keeps client effort untouched", func(t *testing.T) {
+		in := []byte(`{"max_tokens":4096,"tools":[{"name":"t"}],"output_config":{"effort":"high"}}`)
+		out, changed := gatewayFidelityApplyToolEffortCap(in, 4096)
+		require.False(t, changed)
+		require.Equal(t, "high", gjson.GetBytes(out, "output_config.effort").String())
+	})
+
+	t.Run("preserves other output_config fields", func(t *testing.T) {
+		in := []byte(`{"max_tokens":2048,"tools":[{"name":"t"}],"output_config":{"format":{"type":"json_schema"}}}`)
+		out, changed := gatewayFidelityApplyToolEffortCap(in, 4096)
+		require.True(t, changed)
+		require.Equal(t, "low", gjson.GetBytes(out, "output_config.effort").String())
+		require.Equal(t, "json_schema", gjson.GetBytes(out, "output_config.format.type").String())
+	})
+
+	t.Run("skips requests without tools", func(t *testing.T) {
+		_, changed := gatewayFidelityApplyToolEffortCap([]byte(`{"max_tokens":2048}`), 4096)
+		require.False(t, changed)
+	})
+
+	t.Run("skips requests above floor", func(t *testing.T) {
+		_, changed := gatewayFidelityApplyToolEffortCap(
+			[]byte(`{"max_tokens":8192,"tools":[{"name":"t"}]}`), 4096)
+		require.False(t, changed)
+	})
+
+	t.Run("ignores empty body", func(t *testing.T) {
+		_, changed := gatewayFidelityApplyToolEffortCap(nil, 4096)
+		require.False(t, changed)
+	})
+}
+
 func TestGatewayFidelityBodyHasContextManagement(t *testing.T) {
 	require.True(t, gatewayFidelityBodyHasContextManagement(
 		[]byte(`{"context_management":{"edits":[]}}`)))

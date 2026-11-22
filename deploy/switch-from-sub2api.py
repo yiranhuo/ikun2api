@@ -159,10 +159,17 @@ def compose_switch(args,stage,version):
     if len(networks)!=1:raise SwitchError('多网络部署需要确认数据库网络后手动迁入')
     if not any(m['Destination']=='/app/data' and m.get('RW') for m in config['Mounts']):raise SwitchError('原服务必须有可写持久化 /app/data')
     image=f'ghcr.io/{REPO}:{version}'
-    pulled=run(['docker','pull',image],check=False)
-    if pulled.returncode:
-        name=f'ikun2api_image_{version}_linux_'+{'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]+'.tar.gz'
+    name=f'ikun2api_image_{version}_linux_'+{'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]+'.tar.gz'
+    bundled=args.bundle_dir/name if args.bundle_dir else None
+    if bundled is not None and bundled.exists():
+        # 显式给了本地发行包时，被测对象就是它。否则同名的已发布镜像会通过
+        # docker pull 盖掉本地刚构建出来的那一份，校验时必然对不上。
+        value=bundled.read_bytes()
+    elif run(['docker','pull',image],check=False).returncode:
         value=(args.bundle_dir/name).read_bytes() if args.bundle_dir else get(f'https://github.com/{REPO}/releases/download/v{version}/'+name,1024*1024*1024)
+    else:
+        value=None
+    if value is not None:
         if verify_checksums(stage).get(name)!=hashlib.sha256(value).hexdigest():raise SwitchError('容器镜像校验失败')
         archive=stage/name;archive.write_bytes(value);run(['docker','load','--input',str(archive)])
     image_hash=output(['docker','run','--rm','--entrypoint','sha256sum',image,'/app/ikun2api']).split()[0]

@@ -1,0 +1,193 @@
+name: 同步上游
+
+# 定时检查上游 1812095643/ikun2api，有更新就试合并；合并干净则 bump 版本、
+# 推 main、打 tag，再用 workflow_dispatch 把「发布 IKUN2api」派起来。
+#
+# 为什么不用 push tag 直接触发发布：GitHub 不允许 GITHUB_TOKEN 推送所产生的
+# 事件再触发新的 workflow，所以 push 上去的 tag 带不动 release.yml。但
+# workflow_dispatch 是这个限制的唯一例外（已实测：GITHUB_TOKEN 派发
+# workflow_dispatch 能起新的 run），而 release.yml 的 PUBLISH 条件是
+# `github.ref_type == 'tag' || inputs.dry_run == false`，因此派发时把
+# dry_run 设为 false、ref 指到刚打的 tag，就等于一次正式发布。
+# 这样整条链路只用内置 GITHUB_TOKEN，不需要任何 PAT。
+
+on:
+  schedule:
+    # UTC 03:17 = 北京时间 11:17，避开整点高峰。
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: merge = 合并后发版；check = 只看有没有更新
+        type: choice
+        options: [merge, check]
+        default: merge
+      dry_run:
+        description: 只做合并与版本计算，不推送、不发版
+        type: boolean
+        default: false
+      upstream_ref:
+        description: 可选，覆盖上游分支（默认 main），用于试合并指定分支
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: 1812095643/ikun2api
+  UPSTREAM_REF: ${{ inputs.upstream_ref || 'main' }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          # 需要完整历史才能判断上游分支是否已被包含。
+          fetch-depth: 0
+
+      - name: 读取合并前版本
+        run: echo "LOCAL_VERSION=$(cat backend/cmd/server/VERSION)" >> "$GITHUB_ENV"
+
+      - name: 拉取上游
+        run: |
+          git remote add upstream "https://github.com/$UPSTREAM_REPO.git"
+          git fetch upstream --no-tags
+          echo "上游 $UPSTREAM_REF = $(git rev-parse --short "upstream/$UPSTREAM_REF")"
+
+      - name: 判断是否有新提交
+        id: check
+        run: |
+          if git merge-base --is-ancestor "upstream/$UPSTREAM_REF" HEAD; then
+            echo "new=0" >> "$GITHUB_OUTPUT"
+            echo "上游没有本仓库尚未包含的提交"
+            exit 0
+          fi
+          echo "new=1" >> "$GITHUB_OUTPUT"
+          git log --oneline "HEAD..upstream/$UPSTREAM_REF" | tee /tmp/incoming.txt
+          echo "count=$(git rev-list --count "HEAD..upstream/$UPSTREAM_REF")" >> "$GITHUB_OUTPUT"
+
+      - name: 试合并
+        id: merge
+        if: steps.check.outputs.new == '1' && inputs.mode != 'check'
+        run: |
+          git config user.name yiranhuo
+          git config user.email yiranhuo@users.noreply.github.com
+          if git merge --no-ff --no-edit "upstream/$UPSTREAM_REF"; then
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 冲突时开 issue 交给人工
+        if: steps.check.outputs.new == '1' && inputs.mode != 'check' && steps.merge.outputs.ok == '0'
+        uses: actions/github-script@v7
+        env:
+          COUNT: ${{ steps.check.outputs.count }}
+          UPSTREAM_REF: ${{ env.UPSTREAM_REF }}
+        with:
+          script: |
+            const fs = require('fs');
+            const incoming = fs.existsSync('/tmp/incoming.txt')
+              ? fs.readFileSync('/tmp/incoming.txt', 'utf8') : '(空)';
+            const title = '上游有更新但与本地改动冲突，需要人工合并';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'upstream-sync',
+            });
+            if (existing.some((i) => i.title === title)) {
+              core.info('已存在同类 issue，跳过重复创建');
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title,
+              labels: ['upstream-sync'],
+              body: [
+                `上游 \`${{ env.UPSTREAM_REPO }}\` 有 **${process.env.COUNT}** 个本仓库尚未包含的提交，`,
+                '自动合并失败（存在冲突）。以下是待合入的提交：',
+                '',
+                '```',
+                incoming.trim(),
+                '```',
+                '',
+                '本地手工处理：',
+                '```bash',
+                `git remote add upstream https://github.com/${process.env.UPSTREAM_REPO}.git`,
+                'git fetch upstream --no-tags',
+                'git merge upstream/' + process.env.UPSTREAM_REF + '   # 解决冲突后',
+                'python3 scripts/release/prepare-upstream-sync.py --local-version <合并前版本>',
+                '```',
+              ].join('\n'),
+            });
+
+      - name: 计算新版本号
+        id: bump
+        if: steps.check.outputs.new == '1' && steps.merge.outputs.ok == '1'
+        run: |
+          version=$(python3 scripts/release/prepare-upstream-sync.py \
+            --local-version "$LOCAL_VERSION")
+          echo "计算得到新版本 $LOCAL_VERSION -> $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: 合并后自检
+        if: steps.check.outputs.new == '1' && steps.merge.outputs.ok == '1'
+        run: |
+          gofmt -l backend/cmd/server backend/internal/handler/admin backend/internal/service
+          git diff --stat
+
+      - name: 推送 main 并打 tag
+        id: push
+        if: steps.check.outputs.new == '1' && steps.merge.outputs.ok == '1' && inputs.dry_run != true
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git add -A
+          git commit -m "chore: 同步上游 ${{ env.UPSTREAM_REPO }} 并发布 ${VERSION}"
+          git push origin HEAD:main
+          git tag -a "v${VERSION}" -m "IKUN2api ${VERSION}"
+          git push origin "v${VERSION}"
+          echo "pushed=1" >> "$GITHUB_OUTPUT"
+
+      - name: 派发发布流水线
+        id: dispatch
+        if: steps.push.outputs.pushed == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          # dry_run=false 让 release.yml 走 PUBLISH 分支；ref 指到刚打的 tag，
+          # 版本校验脚本才会用 tag 语义断言 tag 名与 VERSION 相等。
+          gh workflow run release.yml \
+            -R "${{ github.repository }}" \
+            --ref "v${VERSION}" \
+            -f dry_run=false
+          echo "已派发发布流水线，ref=v${VERSION}"
+          sleep 15
+          gh run list -R "${{ github.repository }}" \
+            --workflow release.yml -L 1 \
+            --json databaseId,status,conclusion,headBranch \
+            --template '{{range .}}{{.databaseId}} {{.headBranch}} {{.status}} {{.conclusion}}{{"\n"}}{{end}}'
+
+      - name: 汇总
+        if: always()
+        run: |
+          {
+            echo "### 同步上游结果"
+            echo ""
+            echo "- 合并前本地版本：\`$LOCAL_VERSION\`"
+            echo "- 上游有新提交：\`${{ steps.check.outputs.new }}\`（${{ steps.check.outputs.count || 0 }} 个）"
+            echo "- 合并成功：\`${{ steps.merge.outputs.ok || 'n/a' }}\`"
+            echo "- 新版本号：\`${{ steps.bump.outputs.version || '未生成' }}\`"
+            echo "- 已推送：\`${{ steps.push.outputs.pushed || '0' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

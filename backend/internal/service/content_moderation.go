@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	infraerrors "github.com/MACOS-DO/sub4api/internal/pkg/errors"
 	"github.com/MACOS-DO/sub4api/internal/pkg/httpclient"
 	"github.com/MACOS-DO/sub4api/internal/pkg/pagination"
+	"github.com/MACOS-DO/sub4api/internal/pkg/requesttiming"
 	"github.com/MACOS-DO/sub4api/internal/pkg/servertiming"
 )
 
@@ -154,6 +156,7 @@ type ContentModerationConfig struct {
 	SampleRate           int                          `json:"sample_rate"`
 	AllGroups            bool                         `json:"all_groups"`
 	GroupIDs             []int64                      `json:"group_ids"`
+	ExemptAccountIDs     []int64                      `json:"exempt_account_ids"`
 	RecordNonHits        bool                         `json:"record_non_hits"`
 	Thresholds           map[string]float64           `json:"thresholds"`
 	WorkerCount          int                          `json:"worker_count"`
@@ -175,6 +178,7 @@ type ContentModerationConfig struct {
 	// 当次不判定封号，且历史 cyber 行在 CountFlaggedByUserSince 中被排除。
 	// 默认 false（计入，与历史行为一致；旧配置 JSON 无此字段时反序列化为 false）。
 	CyberPolicyExcludeFromBanCount bool `json:"cyber_policy_exclude_from_ban_count"`
+	exemptAccounts                 map[int64]struct{}
 }
 
 type ContentModerationConfigView struct {
@@ -194,6 +198,7 @@ type ContentModerationConfigView struct {
 	SampleRate                     int                                     `json:"sample_rate"`
 	AllGroups                      bool                                    `json:"all_groups"`
 	GroupIDs                       []int64                                 `json:"group_ids"`
+	ExemptAccountIDs               []int64                                 `json:"exempt_account_ids"`
 	RecordNonHits                  bool                                    `json:"record_non_hits"`
 	Thresholds                     map[string]float64                      `json:"thresholds"`
 	WorkerCount                    int                                     `json:"worker_count"`
@@ -291,6 +296,7 @@ type UpdateContentModerationConfigInput struct {
 	SampleRate                     *int                          `json:"sample_rate"`
 	AllGroups                      *bool                         `json:"all_groups"`
 	GroupIDs                       *[]int64                      `json:"group_ids"`
+	ExemptAccountIDs               *[]int64                      `json:"exempt_account_ids"`
 	RecordNonHits                  *bool                         `json:"record_non_hits"`
 	Thresholds                     *map[string]float64           `json:"thresholds"`
 	WorkerCount                    *int                          `json:"worker_count"`
@@ -693,6 +699,17 @@ func (s *ContentModerationService) UpdateConfig(ctx context.Context, input Updat
 	if input.GroupIDs != nil {
 		cfg.GroupIDs = normalizeInt64IDs(*input.GroupIDs)
 	}
+	if input.ExemptAccountIDs != nil {
+		if len(*input.ExemptAccountIDs) > 10000 {
+			return nil, infraerrors.BadRequest("INVALID_MODERATION_ACCOUNT_ALLOWLIST", "账号白名单最多选择 10000 个账号")
+		}
+		for _, id := range *input.ExemptAccountIDs {
+			if id <= 0 {
+				return nil, infraerrors.BadRequest("INVALID_MODERATION_ACCOUNT_ALLOWLIST", "请选择有效的上游账号")
+			}
+		}
+		cfg.ExemptAccountIDs = normalizeInt64IDs(*input.ExemptAccountIDs)
+	}
 	if input.RecordNonHits != nil {
 		cfg.RecordNonHits = *input.RecordNonHits
 	}
@@ -822,7 +839,11 @@ func (s *ContentModerationService) TestAPIKeys(ctx context.Context, input TestCo
 }
 
 func (s *ContentModerationService) Check(ctx context.Context, input ContentModerationCheckInput) (decision *ContentModerationDecision, err error) {
+	defer requesttiming.Observe(ctx, "content_audit")()
 	allow := &ContentModerationDecision{Allowed: true, Action: ContentModerationActionAllow}
+	if accountModerationDeferred(ctx) {
+		return allow, nil
+	}
 	if s == nil || s.settingRepo == nil || s.repo == nil {
 		slog.Info("content_moderation.skip_unavailable",
 			"user_id", input.UserID,
@@ -994,8 +1015,8 @@ func (s *ContentModerationService) Check(ctx context.Context, input ContentModer
 		"text_runes", len([]rune(content.Text)),
 		"image_count", len(content.Images))
 	hashText := content.Hash()
-	if cfg.PreHashCheckEnabled && s.hashCache != nil {
-		matched, err := s.hashCache.HasFlaggedInputHash(ctx, hashText)
+	if cfg.PreHashCheckEnabled && cfg.Mode == ContentModerationModePreBlock && !input.riskControlLogOnly && s.hashCache != nil {
+		matched, err := s.hashCache.HasFlaggedInputHash(ctx, cfg.flaggedCacheKey(hashText))
 		if err != nil {
 			slog.Warn("content_moderation.hash_check_failed", "user_id", input.UserID, "endpoint", input.Endpoint, "error", err)
 		}
@@ -1379,7 +1400,19 @@ func (s *ContentModerationService) DeleteFlaggedInputHash(ctx context.Context, i
 	if s == nil || s.hashCache == nil {
 		return nil, infraerrors.InternalServer("CONTENT_MODERATION_HASH_CACHE_UNAVAILABLE", "内容审计哈希缓存不可用")
 	}
-	deleted, err := s.hashCache.DeleteFlaggedInputHash(ctx, inputHash)
+	deletedRaw, rawErr := s.hashCache.DeleteFlaggedInputHash(ctx, inputHash)
+	if rawErr != nil {
+		return nil, rawErr
+	}
+	if deletedRaw || s.settingRepo == nil {
+		return &ContentModerationDeleteHashResult{InputHash: inputHash, Deleted: deletedRaw}, nil
+	}
+	cfg, err := s.loadConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	cacheKey := cfg.effectiveEngine(cfg.Engine).flaggedCacheKey(inputHash)
+	deleted, err := s.hashCache.DeleteFlaggedInputHash(ctx, cacheKey)
 	if err != nil {
 		return nil, fmt.Errorf("delete content moderation flagged hash: %w", err)
 	}
@@ -1951,7 +1984,7 @@ func (s *ContentModerationService) persistContentModerationLog(ctx context.Conte
 		recordHash, applySideEffects = false, false
 	}
 	if recordHash && s.hashCache != nil {
-		if err := s.hashCache.RecordFlaggedInputHash(ctx, hashText); err != nil {
+		if err := s.hashCache.RecordFlaggedInputHash(ctx, cfg.flaggedCacheKey(hashText)); err != nil {
 			slog.Warn("content_moderation.record_hash_failed", "user_id", contentModerationEmailUserID(log), "endpoint", log.Endpoint, "error", err)
 		}
 	}
@@ -2181,6 +2214,7 @@ func cloneContentModerationConfig(cfg *ContentModerationConfig) *ContentModerati
 	clone.ProxyID = cloneInt64Ptr(cfg.ProxyID)
 	clone.APIKeys = append([]string(nil), cfg.APIKeys...)
 	clone.GroupIDs = append([]int64(nil), cfg.GroupIDs...)
+	clone.ExemptAccountIDs = append([]int64(nil), cfg.ExemptAccountIDs...)
 	clone.BlockedKeywords = append([]string(nil), cfg.BlockedKeywords...)
 	clone.Thresholds = cloneFloatMap(cfg.Thresholds)
 	clone.ModelFilter = ContentModerationModelFilter{
@@ -2191,6 +2225,11 @@ func cloneContentModerationConfig(cfg *ContentModerationConfig) *ContentModerati
 }
 
 func (cfg *ContentModerationConfig) normalize() {
+	cfg.ExemptAccountIDs = normalizeInt64IDs(cfg.ExemptAccountIDs)
+	cfg.exemptAccounts = make(map[int64]struct{}, len(cfg.ExemptAccountIDs))
+	for _, id := range cfg.ExemptAccountIDs {
+		cfg.exemptAccounts[id] = struct{}{}
+	}
 	cfg.Engine = moderationEngine(cfg.Engine)
 	if cfg.APIKey != "" {
 		cfg.APIKeys = normalizeModerationAPIKeys(append(cfg.APIKeys, cfg.APIKey))
@@ -2486,6 +2525,7 @@ func (s *ContentModerationService) configView(cfg *ContentModerationConfig) *Con
 		SampleRate:                     cfg.SampleRate,
 		AllGroups:                      cfg.AllGroups,
 		GroupIDs:                       append([]int64(nil), cfg.GroupIDs...),
+		ExemptAccountIDs:               append([]int64{}, cfg.ExemptAccountIDs...),
 		RecordNonHits:                  cfg.RecordNonHits,
 		Thresholds:                     cloneFloatMap(cfg.Thresholds),
 		WorkerCount:                    cfg.WorkerCount,
@@ -2750,23 +2790,21 @@ type moderationAPIResult struct {
 }
 
 func evaluateModerationScores(scores map[string]float64, thresholds map[string]float64) (bool, string, float64) {
-	flagged := false
-	highestCategory := ""
-	highestScore := 0.0
+	flagged, highestCategory, highestScore := false, "", 0.0
 	for _, category := range contentModerationCategoryOrder {
-		score := scores[category]
-		if score > highestScore || highestCategory == "" {
-			highestScore = score
-			highestCategory = category
+		score, present := scores[category]
+		if !present || score < 0 || score > 1 || math.IsNaN(score) || math.IsInf(score, 0) {
+			continue
 		}
-		if score >= thresholds[category] {
+		hit := moderationCategoryHit(scores, thresholds, category)
+		if hit && !flagged {
+			highestCategory, highestScore = category, score
+		}
+		if hit {
 			flagged = true
 		}
-	}
-	for category, score := range scores {
-		if score > highestScore || highestCategory == "" {
-			highestScore = score
-			highestCategory = category
+		if (hit || !flagged) && (highestCategory == "" || score > highestScore) {
+			highestCategory, highestScore = category, score
 		}
 	}
 	return flagged, highestCategory, highestScore
@@ -3038,6 +3076,7 @@ func maskSecretTail(secret string) string {
 // CyberPolicyRecordInput 是一次 cyber_policy 硬阻断的风控记录入参。
 type CyberPolicyRecordInput struct {
 	LogOnly         bool // Trusted platform user: retain evidence without penalties or notifications.
+	AccountID       int64
 	RequestID       string
 	UserID          int64
 	UserEmail       string
@@ -3059,6 +3098,9 @@ type CyberPolicyRecordInput struct {
 // 受 risk_control_enabled 总开关和内容审核 group/model scope 约束，
 // 不受内容审核 Enabled/Mode/sample 约束。
 func (s *ContentModerationService) RecordCyberPolicyEvent(ctx context.Context, in CyberPolicyRecordInput) {
+	if s.IsAccountAuditExempt(ctx, in.AccountID) {
+		return
+	}
 	if s == nil || s.repo == nil {
 		return
 	}

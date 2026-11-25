@@ -63,6 +63,10 @@ jobs:
           git remote add upstream "https://github.com/$UPSTREAM_REPO.git"
           git fetch upstream --no-tags
           echo "上游 $UPSTREAM_REF = $(git rev-parse --short "upstream/$UPSTREAM_REF")"
+          # 记录上游版本号：合并前若与本地相同即版本撞车，冲突解决方式要按此调整。
+          UPSTREAM_VERSION=$(git show "upstream/$UPSTREAM_REF:backend/cmd/server/VERSION" 2>/dev/null | tr -d '[:space:]')
+          echo "UPSTREAM_VERSION=$UPSTREAM_VERSION" >> "$GITHUB_ENV"
+          echo "上游版本 = ${UPSTREAM_VERSION:-未知}，本地版本 = $LOCAL_VERSION"
 
       - name: 判断是否有新提交
         id: check
@@ -113,6 +117,9 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               title,
               labels: ['upstream-sync'],
+              const upstreamVersion = (process.env.UPSTREAM_VERSION || '').trim();
+              const localVersion = (process.env.LOCAL_VERSION || '').trim();
+              const versionClash = upstreamVersion && upstreamVersion === localVersion;
               body: [
                 `上游 \`${{ env.UPSTREAM_REPO }}\` 有 **${process.env.COUNT}** 个本仓库尚未包含的提交，`,
                 '自动合并失败（存在冲突）。以下是待合入的提交：',
@@ -121,12 +128,21 @@ jobs:
                 incoming.trim(),
                 '```',
                 '',
+                ...(versionClash
+                  ? [
+                      `> **版本号撞车**：上游与本仓库的 \`backend/cmd/server/VERSION\` 都是 \`${localVersion}\`。`,
+                      '> 直接合并会让更新器的版本序列倒退，请先把本仓库版本推进到上游之上再解决 VERSION 与 changelog 冲突。',
+                      '',
+                    ]
+                  : []),
+                `本仓库当前版本：\`${localVersion}\`${upstreamVersion ? `，上游版本：\`${upstreamVersion}\`` : ''}。`,
+                '',
                 '本地手工处理：',
                 '```bash',
                 `git remote add upstream https://github.com/${process.env.UPSTREAM_REPO}.git`,
                 'git fetch upstream --no-tags',
                 'git merge upstream/' + process.env.UPSTREAM_REF + '   # 解决冲突后',
-                'python3 scripts/release/prepare-upstream-sync.py --local-version <合并前版本>',
+                'python3 scripts/release/prepare-upstream-sync.py --local-version ' + process.env.LOCAL_VERSION,
                 '```',
               ].join('\n'),
             });

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MACOS-DO/sub4api/internal/handler/dto"
 	"github.com/MACOS-DO/sub4api/internal/pkg/response"
 	"github.com/MACOS-DO/sub4api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -34,30 +35,26 @@ type importedAccount struct {
 	LastUsedAt  *time.Time `json:"last_used_at"`
 }
 type reloginRun struct {
-	ID           int64          `json:"id"`
-	Email        string         `json:"email"`
-	AccountID    *int64         `json:"account_id"`
-	Trigger      string         `json:"trigger"`
-	Status       string         `json:"status"`
-	StartedAt    time.Time      `json:"started_at"`
-	FinishedAt   *time.Time     `json:"finished_at"`
-	ErrorMessage string         `json:"error_message"`
-	PlanType     string         `json:"plan_type"`
-	Applied      bool           `json:"applied"`
-	ApplyAction  string         `json:"apply_action"`
-	Challenge    map[string]any `json:"challenge,omitempty"`
-	Blob         string         `json:"-"`
+	ID                 int64          `json:"id"`
+	Email              string         `json:"email"`
+	AccountID          *int64         `json:"account_id"`
+	Trigger            string         `json:"trigger"`
+	Status             string         `json:"status"`
+	StartedAt          time.Time      `json:"started_at"`
+	FinishedAt         *time.Time     `json:"finished_at"`
+	ErrorMessage       string         `json:"error_message"`
+	PlanType           string         `json:"plan_type"`
+	Applied            bool           `json:"applied"`
+	ApplyAction        string         `json:"apply_action"`
+	Challenge          map[string]any `json:"challenge,omitempty"`
+	Blob               string         `json:"-"`
+	AccountFingerprint string         `json:"-"`
 }
 type accountSummary struct {
-	ID           int64     `json:"id"`
-	Email        string    `json:"email"`
-	Name         string    `json:"name"`
-	Status       string    `json:"status"`
-	Schedulable  bool      `json:"schedulable"`
-	PlanType     string    `json:"plan_type"`
-	ErrorMessage string    `json:"error_message"`
-	HasImported  bool      `json:"has_imported"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	*dto.AccountListItem
+	Email       string `json:"email"`
+	PlanType    string `json:"plan_type"`
+	HasImported bool   `json:"has_imported"`
 }
 
 func normalizeEmail(raw string) (string, error) {
@@ -118,7 +115,11 @@ func (h *Handler) reloginAccounts(c *gin.Context) {
 			continue
 		}
 		email := accountEmail(a)
-		items = append(items, accountSummary{ID: a.ID, Email: email, Name: a.Name, Status: a.Status, Schedulable: a.Schedulable, PlanType: a.GetCredential("plan_type"), ErrorMessage: a.ErrorMessage, HasImported: imported[email], UpdatedAt: a.UpdatedAt})
+		// 与账号管理共用脱敏列表数据，额度组件可沿用快照与刷新逻辑，不额外返回密钥。
+		items = append(items, accountSummary{
+			AccountListItem: dto.AccountListItemFromAccount(dto.AccountFromServiceShallow(&a)),
+			Email:           email, PlanType: a.GetCredential("plan_type"), HasImported: imported[email],
+		})
 	}
 	response.Success(c, gin.H{"items": items, "synced_at": time.Now()})
 }
@@ -450,11 +451,11 @@ func (h *Handler) deleteInvalidImported(c *gin.Context) {
 	response.Success(c, gin.H{"deleted": count})
 }
 
-const runColumns = "id,email,account_id,trigger,status,started_at,finished_at,error_message,plan_type,applied,apply_action,result_blob"
+const runColumns = "id,email,account_id,trigger,status,started_at,finished_at,error_message,plan_type,applied,apply_action,result_blob,account_fingerprint"
 
 func scanRun(row rowScanner) (reloginRun, error) {
 	var run reloginRun
-	err := row.Scan(&run.ID, &run.Email, &run.AccountID, &run.Trigger, &run.Status, &run.StartedAt, &run.FinishedAt, &run.ErrorMessage, &run.PlanType, &run.Applied, &run.ApplyAction, &run.Blob)
+	err := row.Scan(&run.ID, &run.Email, &run.AccountID, &run.Trigger, &run.Status, &run.StartedAt, &run.FinishedAt, &run.ErrorMessage, &run.PlanType, &run.Applied, &run.ApplyAction, &run.Blob, &run.AccountFingerprint)
 	return run, err
 }
 func (h *Handler) loadRun(ctx context.Context, id int64) (reloginRun, error) {

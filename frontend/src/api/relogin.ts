@@ -1,16 +1,10 @@
 import { apiClient } from './client'
-import type { Group, Proxy } from '@/types'
+import type { AccountListItem, Group, Proxy } from '@/types'
 
-export interface ReloginAccount {
-  id: number
+export interface ReloginAccount extends AccountListItem {
   email: string
-  name: string
-  status: string
-  schedulable: boolean
   plan_type: string
-  error_message: string
   has_imported: boolean
-  updated_at: string
 }
 export interface LoginSecret {
   email: string
@@ -53,6 +47,9 @@ export interface LoginRun {
 }
 export interface ReloginSettings {
   auto_enabled: boolean
+  auto_error_threshold: number
+  auto_error_window_minutes: number
+  auto_cooldown_minutes: number
   template: {
     proxy_id: number | null
     group_ids: number[]

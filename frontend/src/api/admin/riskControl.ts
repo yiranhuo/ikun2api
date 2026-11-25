@@ -3,6 +3,9 @@ import { apiClient } from '../client'
 export type ModerationMode = 'off' | 'observe' | 'pre_block'
 export type ModerationEngine = 'openai' | 'typesafe'
 export interface ModerationEngineMeta {
+  confirmation?: 'confirmed' | 'cleared'
+  initial_scores?: Record<string, number>
+  confirmation_scores?: Record<string, number>
   engine: ModerationEngine
   model: string
   rules_version: string
@@ -33,6 +36,7 @@ export interface ContentModerationConfig {
   sample_rate: number
   all_groups: boolean
   group_ids: number[]
+  exempt_account_ids?: number[]
   record_non_hits: boolean
   thresholds: Record<string, number>
   worker_count: number
@@ -118,6 +122,7 @@ export interface UpdateContentModerationConfig {
   sample_rate?: number
   all_groups?: boolean
   group_ids?: number[]
+  exempt_account_ids?: number[]
   record_non_hits?: boolean
   thresholds?: Record<string, number>
   worker_count?: number

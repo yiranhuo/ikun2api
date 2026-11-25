@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MACOS-DO/sub4api/internal/pkg/ctxkey"
+	"github.com/MACOS-DO/sub4api/internal/pkg/requesttiming"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -83,6 +84,12 @@ func SetOpsLatencyMs(c *gin.Context, key string, value int64) {
 		return
 	}
 	c.Set(key, value)
+	if c.Request != nil {
+		switch key {
+		case OpsAuthLatencyMsKey, OpsRoutingLatencyMsKey, OpsUpstreamLatencyMsKey, OpsResponseLatencyMsKey, OpsOpenAIWSQueueWaitMsKey, OpsOpenAIWSConnPickMsKey:
+			requesttiming.RecordDuration(c.Request.Context(), key, time.Duration(value)*time.Millisecond)
+		}
+	}
 }
 
 // SetOpsUpstreamModel stores only the effective model slug for final Ops
@@ -436,6 +443,12 @@ type OpsUpstreamErrorEvent struct {
 	Message string `json:"message,omitempty"`
 	Detail  string `json:"detail,omitempty"`
 
+	// ReportedHeaders are the request headers this attempt sent upstream that
+	// were produced by header-override variables ({{user_id}} etc.), keyed by
+	// lowercase header name. Only variable-driven headers are captured: static
+	// override values may hold relay secrets and must never be logged here.
+	ReportedHeaders map[string]string `json:"reported_headers,omitempty"`
+
 	// SkipMonitoring is request-local rule state. It is intentionally excluded
 	// from persisted attempt JSON. The logger consults it only when this event is
 	// the final client-visible failure; recovered attempts remain provider-health
@@ -471,6 +484,9 @@ func appendOpsUpstreamError(c *gin.Context, ev OpsUpstreamErrorEvent) {
 	ev.Detail = strings.TrimSpace(ev.Detail)
 	if ev.Message != "" {
 		ev.Message = sanitizeUpstreamErrorMessage(ev.Message)
+	}
+	if ev.ReportedHeaders == nil && c.Request != nil {
+		ev.ReportedHeaders = headerOverrideReportedHeaders(c.Request.Context(), ev.AccountID)
 	}
 
 	var existing []*OpsUpstreamErrorEvent

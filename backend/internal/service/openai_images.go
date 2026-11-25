@@ -687,6 +687,10 @@ func (s *OpenAIGatewayService) ForwardImages(
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
 ) (*OpenAIForwardResult, error) {
+	if err := CheckAccountContentModeration(ctx, c, account); err != nil {
+		return nil, err
+	}
+
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
@@ -947,7 +951,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 		req.Header.Set("Content-Type", contentType)
 	}
 	// 账号级请求头覆写（仅 openai api_key 账号启用时生效；OAuth 路径 no-op）
-	account.ApplyHeaderOverrides(req.Header)
+	account.ApplyHeaderOverrides(req.Context(), req.Header)
 	return req, nil
 }
 

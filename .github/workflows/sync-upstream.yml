@@ -68,6 +68,29 @@ jobs:
           echo "UPSTREAM_VERSION=$UPSTREAM_VERSION" >> "$GITHUB_ENV"
           echo "上游版本 = ${UPSTREAM_VERSION:-未知}，本地版本 = $LOCAL_VERSION"
 
+      - name: 预检上游发布产物字段
+        id: manifest
+        run: |
+          set +e
+          LINE=$(git show "upstream/$UPSTREAM_REF:.github/workflows/release.yml" 2>/dev/null | grep -o "'repository':'[^']*'" | head -1)
+          BASELINE=$(git show "upstream/$UPSTREAM_REF:.github/workflows/release.yml" 2>/dev/null | grep -o "'upstream_baseline':'[^']*'" | head -1)
+          LOCAL_BASELINE=$(grep -o "'upstream_baseline':'[^']*'" .github/workflows/release.yml | head -1)
+          echo "上游 manifest 仓库字段: ${LINE:-未找到}"
+          echo "上游基线: ${BASELINE:-未找到}，本地基线: ${LOCAL_BASELINE:-未找到}"
+          PINNED=0
+          case "$LINE" in
+            *"'repository':'"$UPSTREAM_REPO"'"*) PINNED=1 ;;
+          esac
+          echo "pinned=$PINNED" >> "$GITHUB_OUTPUT"
+          {
+            echo "AM_UPSTREAM_MANIFEST=$LINE"
+            echo "AM_UPSTREAM_BASELINE=$BASELINE"
+          } >> "$GITHUB_ENV"
+          if [ "$PINNED" = "1" ]; then
+            echo "::notice::上游 release.yml 的 manifest 仓库字段是写死值，合并时这一行必现冲突；保留上游的 upstream_baseline 新值，只把 repository 换成本仓库派生写法。"
+          fi
+          exit 0
+
       - name: 判断是否有新提交
         id: check
         run: |
@@ -137,6 +160,15 @@ jobs:
                   : []),
                 `本仓库当前版本：\`${localVersion}\`${upstreamVersion ? `，上游版本：\`${upstreamVersion}\`` : ''}。`,
                 '',
+                ...(String(process.env.AM_UPSTREAM_MANIFEST || '').includes(
+                  `'repository':'${process.env.UPSTREAM_REPO}'`)
+                  ? [
+                      '> **release.yml 必现冲突**：上游 `release-manifest.json` 那一行写死了仓库名',
+                      `> \`${process.env.AM_UPSTREAM_MANIFEST}\`，本仓库该行改为从 \`GITHUB_REPOSITORY\` 派生。`,
+                      '> 解决方式：保留上游的 `upstream_baseline` 新值（这是上游真实进展），只把 `repository` 换回派生写法。',
+                      '',
+                    ]
+                  : []),
                 '本地手工处理：',
                 '```bash',
                 `git remote add upstream https://github.com/${process.env.UPSTREAM_REPO}.git`,

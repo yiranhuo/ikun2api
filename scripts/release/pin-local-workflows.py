@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 
-ROOT = pathlib.Path('/root/ikun-own')
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 BASELINE_FILE = ROOT / 'scripts/release/upstream-baseline'
 
 

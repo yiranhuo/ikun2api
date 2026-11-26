@@ -109,8 +109,19 @@ jobs:
         run: |
           git config user.name yiranhuo
           git config user.email yiranhuo@users.noreply.github.com
+          echo "auto=0" >> "$GITHUB_OUTPUT"
           if git merge --no-ff --no-edit "upstream/$UPSTREAM_REF"; then
             echo "ok=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 冲突分两类。版本号、package.json、changelog 的 add/add、以及
+          # release.yml 里 release-manifest.json 那一行，都是两边各自推进
+          # 版本管理产生的，没有判断价值，交给脚本按固定规则处理；其余才是
+          # 真的要人看的东西。脚本能清干净就继续，清不干净就回滚开 issue。
+          if python3 scripts/release/auto-resolve-sync.py; then
+            git commit -q -m "merge upstream/$UPSTREAM_REF"
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+            echo "auto=1" >> "$GITHUB_OUTPUT"
           else
             git merge --abort
             echo "ok=0" >> "$GITHUB_OUTPUT"
@@ -136,13 +147,13 @@ jobs:
               core.info('已存在同类 issue，跳过重复创建');
               return;
             }
+            const upstreamVersion = (process.env.UPSTREAM_VERSION || '').trim();
+            const localVersion = (process.env.LOCAL_VERSION || '').trim();
+            const versionClash = upstreamVersion && upstreamVersion === localVersion;
             await github.rest.issues.create({
               owner: context.repo.owner, repo: context.repo.repo,
               title,
               labels: ['upstream-sync'],
-              const upstreamVersion = (process.env.UPSTREAM_VERSION || '').trim();
-              const localVersion = (process.env.LOCAL_VERSION || '').trim();
-              const versionClash = upstreamVersion && upstreamVersion === localVersion;
               body: [
                 `上游 \`${{ env.UPSTREAM_REPO }}\` 有 **${process.env.COUNT}** 个本仓库尚未包含的提交，`,
                 '自动合并失败（存在冲突）。以下是待合入的提交：',

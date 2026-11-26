@@ -118,14 +118,19 @@ jobs:
           # release.yml 里 release-manifest.json 那一行，都是两边各自推进
           # 版本管理产生的，没有判断价值，交给脚本按固定规则处理；其余才是
           # 真的要人看的东西。脚本能清干净就继续，清不干净就回滚开 issue。
-          if python3 scripts/release/auto-resolve-sync.py; then
-            git commit -q -m "merge upstream/$UPSTREAM_REF"
-            echo "ok=1" >> "$GITHUB_OUTPUT"
-            echo "auto=1" >> "$GITHUB_OUTPUT"
-          else
+          if ! python3 scripts/release/auto-resolve-sync.py; then
             git merge --abort
             echo "ok=0" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # 内置 GITHUB_TOKEN 不能推送包含 .github/workflows 改动的提交
+          # （要 workflows 权限，App token 拿不到），所以提交前必须把
+          # workflow 目录恢复成本仓库版本，只把上游的 upstream_baseline
+          # 抽进 scripts/release/upstream-baseline 这个普通文件。
+          python3 scripts/release/pin-local-workflows.py "upstream/$UPSTREAM_REF"
+          git commit -q -m "merge upstream/$UPSTREAM_REF"
+          echo "ok=1" >> "$GITHUB_OUTPUT"
+          echo "auto=1" >> "$GITHUB_OUTPUT"
 
       - name: 冲突时开 issue 交给人工
         if: steps.check.outputs.new == '1' && inputs.mode != 'check' && steps.merge.outputs.ok == '0'

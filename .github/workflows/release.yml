@@ -325,8 +325,16 @@ jobs:
           cp "changelog/$VERSION/CHANGELOG.md" dist/release/CHANGELOG.md
           cp deploy/MIGRATION.md dist/release/MIGRATION.md
           python3 - <<'PY'
-          import json,os,pathlib
-          pathlib.Path('dist/release/release-manifest.json').write_text(json.dumps({'version':os.environ['VERSION'],'commit':os.environ['COMMIT'],'repository':os.environ.get('GITHUB_REPOSITORY','yiranhuo/ikun2api'),'upstream_baseline':'0.2.24','schema_forward_only':True,'signature':'Ed25519'},indent=2))
+          import json, os, pathlib
+          baseline = pathlib.Path('scripts/release/upstream-baseline').read_text(encoding='utf-8').strip()
+          pathlib.Path('dist/release/release-manifest.json').write_text(json.dumps({
+              'version': os.environ['VERSION'],
+              'commit': os.environ['COMMIT'],
+              'repository': os.environ.get('GITHUB_REPOSITORY', 'yiranhuo/ikun2api'),
+              'upstream_baseline': baseline,
+              'schema_forward_only': True,
+              'signature': 'Ed25519',
+          }, indent=2))
           PY
       - name: 生成并签名完整校验清单
         env:

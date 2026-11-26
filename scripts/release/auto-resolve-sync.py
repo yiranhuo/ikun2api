@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-"""合并上游时自动解决「机械性」冲突，只把真正需要人看的冲突留给 issue。
+"""auto-resolve：workflow 文件一律取本仓库版本；基线写进普通数据文件。
 
-上游与本仓库的分歧目前只有四类，全是版本管理衍生出来的，不需要判断力：
+内置 GITHUB_TOKEN 不能推送包含 `.github/workflows/*` 改动的提交（要
+`workflows` 权限，App token 拿不到），所以自动同步的合并提交一旦带上上游的
+workflow 改动，push 必被拒。上游几乎每次动 release.yml 都只是为了把
+upstream_baseline 往前推，那部分信息现在已经挪到
+scripts/release/upstream-baseline 这个普通文件里了，workflow 本身没有必须
+跟随上游的理由。
 
-  1. backend/cmd/server/VERSION 与 frontend/package.json
-     两边各自推进到不同补丁号。合并后 prepare-upstream-sync.py 会立刻按
-     「取两边较大值再 +1」重算这两个文件，所以这里直接取本地值，冲突无意义。
-
-  2. changelog/<版本>/CHANGELOG.md 的 add/add 冲突
-     两边各自新建了同名目录、内容完全无关。git 无从合并，但两份内容都该保留，
-     按「本仓库」与「上游」两节并存即可。
-
-  3. .github/workflows/release.yml 里 release-manifest.json 那一行
-     上游把仓库名写死成 1812095643/ikun2api，本仓库改成从 GITHUB_REPOSITORY
-     派生。上游动这一行（比如把 upstream_baseline 从 0.2.24 推到 0.2.25）就必
-     冲突。正确解法是取上游那一行——它带着上游真实进展的基线——只把写死的
-     仓库名换回派生写法。
-
-  4. 其它任何文件
-     真冲突，交回给调用方（sync-upstream.yml 会 abort 并开 issue）。
-
-退出码：0 = 全部解决，调用方 git commit 收尾即可；1 = 仍有真冲突，已打印清单。
+因此规则改为：
+  - `.github/workflows/*` 一律取本仓库版本（--ours），并在合并后把上游
+    release.yml 里的 upstream_baseline 解析出来写进数据文件。
+  - 其它机械冲突照旧。
 """
 import pathlib
 import re
@@ -28,12 +19,9 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+BASELINE_FILE = ROOT / 'scripts/release/upstream-baseline'
 
-DERIVED_REPO = "'repository':os.environ.get('GITHUB_REPOSITORY','yiranhuo/ikun2api')"
-
-# 合并后立刻会被重算的文件，冲突时取本地值
 VERSION_FILES = {'backend/cmd/server/VERSION', 'frontend/package.json'}
-
 CONFLICT_BLOCK = re.compile(r'<<<<<<< [^\n]*\n(.*?)=======\n(.*?)>>>>>>> [^\n]*\n', re.S)
 
 
@@ -46,13 +34,7 @@ def unmerged() -> list[str]:
     return [p for p in r.stdout.splitlines() if p.strip()]
 
 
-def stage(n: int, path: str) -> str | None:
-    r = git('show', f':{n}:{path}')
-    return r.stdout if r.returncode == 0 else None
-
-
 def stage_text(n: int, path: str) -> str | None:
-    """取冲突索引里的某一侧。二进制或缺失返回 None。"""
     r = subprocess.run(['git', 'show', f':{n}:{path}'], cwd=ROOT, capture_output=True)
     if r.returncode != 0:
         return None
@@ -77,7 +59,6 @@ def merge_changelog(path: str) -> bool:
         return False
 
     def body(text: str) -> str:
-        # 去掉标题行与纯空行，只留条目正文
         lines = [l.rstrip() for l in text.splitlines()]
         lines = [l for l in lines if l.strip() and not l.lstrip().startswith('#')]
         return '\n'.join(lines).strip()
@@ -97,51 +78,43 @@ def merge_changelog(path: str) -> bool:
     return True
 
 
-def resolve_release_workflow(path: str) -> bool:
-    current = ROOT / path
-    if not current.exists():
-        return False
-    text = current.read_text(encoding='utf-8')
-    if '<<<<<<<' not in text:
-        return False
-
-    touched = []
-
-    def fix(m: re.Match) -> str:
-        upstream = m.group(2)
-        touched.append(True)
-        # 取上游那段，但把写死的仓库名换回派生写法
-        return re.sub(r"'repository':'[^']*'", DERIVED_REPO, upstream)
-
-    resolved = CONFLICT_BLOCK.sub(fix, text)
-    if not touched:
-        return False
-    if '<<<<<<<' in resolved or '>>>>>>>' in resolved:
-        # 还有别的冲突块没处理，交回人工
-        return False
-    current.write_text(resolved, encoding='utf-8')
-    git('add', '--', path)
-    return True
+def sync_baseline_from_upstream() -> None:
+    """把上游 release.yml 里的 upstream_baseline 抄进数据文件。"""
+    r = subprocess.run(
+        ['git', 'show', 'upstream-sync-ref:.github/workflows/release.yml'],
+        cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        return
+    m = re.search(r"'upstream_baseline':'([^']*)'", r.stdout)
+    if not m:
+        return
+    value = m.group(1).strip()
+    current = BASELINE_FILE.read_text(encoding='utf-8').strip() if BASELINE_FILE.exists() else ''
+    if value and value != current:
+        BASELINE_FILE.write_text(value + '\n', encoding='utf-8')
+        git('add', '--', 'scripts/release/upstream-baseline')
+        print(f'上游基线 {current or "(空)"} -> {value}，已写入 scripts/release/upstream-baseline')
 
 
 def main() -> int:
+    # 冲突里只要出现 workflow，说明上游动了它。此时合并后不能推送带 workflow
+    # 改动的提交，所以统一取本仓库版本，并把其中真正需要跟随的基线抽出来。
     paths = unmerged()
     if not paths:
         print('没有未解决的冲突')
+        sync_baseline_from_upstream()
         return 0
 
     resolved, remaining = [], []
     for path in paths:
-        ok = False
+        ok, kind = False, ''
         if path in VERSION_FILES:
-            ok = take_ours(path)
-            kind = '取本地（合并后立即重算）'
+            ok, kind = take_ours(path), '取本地（合并后立即重算）'
         elif path.startswith('changelog/') and path.endswith('CHANGELOG.md'):
-            ok = merge_changelog(path)
-            kind = '本仓库 / 上游两节并存'
-        elif path == '.github/workflows/release.yml':
-            ok = resolve_release_workflow(path)
-            kind = '取上游基线 + 换回派生仓库名'
+            ok, kind = merge_changelog(path), '本仓库 / 上游两节并存'
+        elif path.startswith('.github/workflows/'):
+            ok = take_ours(path)
+            kind = '保留本仓库版本（GITHUB_TOKEN 不能推 workflow 改动）'
         else:
             kind = ''
         if ok:
@@ -156,6 +129,8 @@ def main() -> int:
         for path in remaining:
             print(' -', path)
         return 1
+
+    sync_baseline_from_upstream()
     print(f'全部 {len(resolved)} 个冲突已自动解决')
     return 0
 

@@ -202,8 +202,24 @@ jobs:
       - name: 合并后自检
         if: steps.check.outputs.new == '1' && steps.merge.outputs.ok == '1'
         run: |
-          gofmt -l backend/cmd/server backend/internal/handler/admin backend/internal/service
-          git diff --stat
+          echo "本次合并改动的文件："
+          git diff --stat HEAD~1 || true
+          CHANGED_GO=$(git diff --name-only HEAD~1 -- '*.go' || true)
+          if [ -z "$CHANGED_GO" ]; then
+            echo "本次合并没有动 Go 文件，跳过 gofmt 检查"
+          else
+            BAD=$(echo "$CHANGED_GO" | xargs -r gofmt -l 2>/dev/null || true)
+            if [ -n "$BAD" ]; then
+              echo "::warning::本次合并带回的 Go 文件未通过 gofmt：${BAD}"
+              echo "$BAD"
+            else
+              echo "本次合并带回的 Go 文件 gofmt 干净"
+            fi
+          fi
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "::error::仍有未解决的冲突"
+            exit 1
+          fi
 
       - name: 推送 main 并打 tag
         id: push

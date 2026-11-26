@@ -342,9 +342,7 @@ describe('admin AccountsView — 账号行展示', () => {
     const tooltip = wrapper.findComponent(HelpTooltip)
     expect(tooltip.props('content')).toBe('https://relay.example.com')
     expect(tooltip.props('widthClass')).toBe('w-max max-w-sm break-all')
-    // 上游 9279699 把名称列包进 flex items-center 容器后去掉了 self-start，
-    // 对齐改由外层容器负责；这里断言仍然保留的 -ml-1。
-    expect(tooltip.classes()).toEqual(expect.arrayContaining(['-ml-1']))
+    expect(tooltip.classes()).toEqual(expect.arrayContaining(['inline-flex', 'items-center', 'align-middle']))
     expect(wrapper.text()).toContain('oauth-account')
     expect(wrapper.text()).toContain('invalid-url')
 

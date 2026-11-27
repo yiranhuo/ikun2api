@@ -1,15 +1,13 @@
-# IKUN2api 1.6.5
+# 1.6.5
+
+## 本仓库（yiranhuo/ikun2api）
 
 本版本针对「接上游 Anthropic 保真度」做三处修复，让 API Key 透传链路在入口校验、
 未知字段传递和服务端压缩三个维度上更接近官方行为。
-
-## 新增
-
 - 账号级开关 `accounts.extra.anthropic_raw_body_passthrough`（布尔，默认 false）。
   打开后，Anthropic API Key 透传分支跳过 `sanitizeClaudePrivacyBody` 与
   `sanitizeClaudePrivacyHeaders`，客户端 body 与请求头 1:1 送往上游。
   默认关闭，保留既有的隐私裁剪行为（剥离客户端自动上下文、计费头、tool provenance 等）。
-
 - 网关侧 Anthropic 服务端压缩仿真（`claude_compact_emu.go`）。
   客户端在 `context_management.edits[]` 里带 `type` 以 `compact` 开头的编辑时：
   - 用 `len(messages JSON)/4` 估算输入 token，未超过 `trigger.value` 时完全不动作；
@@ -18,19 +16,20 @@
   - 非流式响应把 `{"type":"compaction","content":...}` 插到 `content` 首位，并在
     `usage.iterations` 补一条 `{"type":"compaction",...}` 记账（随后是 `{"type":"message",...}`）。
   该实现不依赖客户端是否携带 `compact-*` / `context-management-*` 的 beta token。
-
-## 修复
-
 - API Key 鉴权入口的 401 响应体改为 Anthropic 官方包络：
   `{"type":"error","error":{"type":"authentication_error","message":"Invalid API key"}}`。
   影响三处拒绝路径：请求头超长、key 超长、key 查不到。原先返回的是
   `{"code":"INVALID_API_KEY","message":"Invalid API key"}` 扁平结构。
   ops 错误日志解析（`parseOpsErrorResponse`）第一分支即支持该包络，错误分类不受影响。
-
-## 兼容性
-
 - `anthropic_raw_body_passthrough` 缺失时行为与 1.6.4 完全一致。
 - 压缩仿真只在客户端显式发送 `context_management.edits[].type=compact*` 且历史超过阈值时生效，
   普通对话请求不产生任何 body 变化。
 - 流式响应不改写 `content` 数组（注入 compaction 块需要同步重排 `content_block_*` 的 index，
   对不支持该块类型的客户端风险高于收益），压缩回执仅在非流式响应中给出。
+
+## 上游（1812095643/ikun2api）
+
+- 修复 Bridge 过滤客户端身份元数据后，被「仅允许 Claude Code／Desktop」误拦为 403 的问题。仅对已完成服务端验票的请求免查已过滤的元数据；客户端 UA、协议头、system 校验和 Desktop 独立许可均保留。
+- 配合 IKUN Bridge 0.2.6 保留原始客户端识别头，恢复隐私过滤与分组客户端限制之间的兼容。
+- Bridge 0.2.6 同时提供多套 URL／Key 的加密保存与快速切换，记住上次选择；macOS 复用系统已有证书信任，避免每次启动重复要求密码。
+请同时使用 Bridge 0.2.6，并在网站将服务端更新到本版。服务器由管理员手动更新。
